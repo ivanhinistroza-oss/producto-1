@@ -215,6 +215,14 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
     </div>
   </form>
 </dialog>
+<input type="file" id="backupFile" accept="application/json,.json" hidden>
+<dialog id="backupDialog">
+  <form method="dialog">
+    <h2>Importar copia</h2>
+    <p>¿Cómo quieres aplicar los datos de la copia?</p>
+    <div class="actions"><button class="btn" value="cancel">Cancelar</button><button class="btn" value="merge">Combinar</button><button class="btn primary" value="replace">Reemplazar todo</button></div>
+  </form>
+</dialog>
 
 <script>
 (() => {
@@ -314,9 +322,16 @@ async function putNote(n) {
 }
 async function putSettings(s) {
   if (db) await db.doc("settings/app").set(s);
-  else { mem.settings = s; S.settings = { ...S.settings, ...s }; renderAll(); }
+  else { mem.settings = s; S.settings = { ...S.settings, ...s }; syncMem(); }
 }
-function syncMem() { S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()]; simCache.clear(); renderAll(); }
+function syncMem() {
+  S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()];
+  if (!db) {
+    try { localStorage.setItem("mostrador.data", JSON.stringify({ products: S.products, notes: S.notes, settings: S.settings })); }
+    catch { const b = $("#banner"); b.textContent = "No se pudo guardar en este navegador. Exporta una copia y libera espacio."; b.hidden = false; }
+  }
+  simCache.clear(); renderAll();
+}
 function failMsg(e) {
   const c = e && e.code;
   if (c === "invalid_argument") return "No tienes permiso para guardar cambios en esta app.";
@@ -394,6 +409,7 @@ function renderInventario() {
       <label class="f" style="flex:0 1 120px"><span>Moneda</span><input type="text" id="set-moneda" value="${esc(S.settings.moneda)}" maxlength="4"></label>
       <label class="f" style="flex:0 1 170px"><span>Papel de la ticketera</span><select id="set-papel"><option value="80" ${S.settings.papel !== "58" ? "selected" : ""}>80 mm</option><option value="58" ${S.settings.papel === "58" ? "selected" : ""}>58 mm</option></select></label>
       <button class="btn" id="saveSettings">Guardar datos</button>
+      ${!db ? `<button class="btn" id="exportBackup">Exportar copia</button><button class="btn" id="importBackup">Importar copia</button>` : ""}
     </div>`;
   if (focusId === "invSearch") { const i = $("#invSearch"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
@@ -433,6 +449,8 @@ document.addEventListener("click", e => {
     return;
   }
   if (t.id === "exportCsv") return exportCsv();
+  if (t.id === "exportBackup") return exportBackup();
+  if (t.id === "importBackup") { $("#backupFile").click(); return; }
 });
 document.addEventListener("input", e => {
   if (e.target.id === "invSearch") { S.q = e.target.value; renderInventario(); }
@@ -440,7 +458,44 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const id = e.target.dataset && e.target.dataset.stk;
   if (id) { const v = n2(e.target.value); setStockLocal(id, v); renderInventario(); }
+  if (e.target.id === "backupFile" && e.target.files[0]) importBackup(e.target.files[0]);
 });
+
+async function exportBackup() {
+  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, settings: S.settings }, null, 2);
+  const name = "mostrador-copia-" + new Date().toISOString().slice(0, 10) + ".json";
+  if (downloads) return saveFile(name, data);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+let pendingBackup = null;
+async function importBackup(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.products) || !Array.isArray(data.notes) || !data.settings || typeof data.settings !== "object") throw new Error("Formato inválido");
+    pendingBackup = data;
+    const dialog = $("#backupDialog");
+    dialog.returnValue = ""; dialog.showModal();
+    dialog.onclose = async () => {
+      const mode = dialog.returnValue; const incoming = pendingBackup; pendingBackup = null;
+      if (!incoming || !["merge", "replace"].includes(mode)) return;
+      try {
+        if (mode === "replace") {
+          if (db) {
+            await Promise.all(S.products.map(p => removeProduct(p.id)));
+            await Promise.all(S.notes.map(n => db.collection("notes").doc(n.id).delete()));
+          } else { mem.products.clear(); mem.notes.clear(); }
+        }
+        for (const p of incoming.products) if (p && p.id) await putProduct(p);
+        for (const n of incoming.notes) if (n && n.id) await putNote(n);
+        await putSettings(incoming.settings);
+        if (!db) syncMem();
+        toast(mode === "replace" ? "Copia importada" : "Copia combinada");
+      } catch (err) { toast(failMsg(err)); }
+    };
+  } catch { toast("No se pudo leer la copia. Elige un JSON de Mostrador."); }
+  finally { $("#backupFile").value = ""; }
+}
 
 async function exportCsv() {
   const rows = [["Nombre", "Categoría", "Código", "Unidad", "Precio", "Stock", "Mínimo"]]
@@ -662,7 +717,7 @@ function ticketText(n) {
   return L.join("\n");
 }
 // Archivo independiente para la ticketera: al abrirlo se lanza el diálogo de impresión.
-function printHtml(n) {
+function printHtml(n, autoPrint = true) {
   const w = S.settings.papel === "58" ? 58 : 80;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(folioTxt(n.folio))}</title>
 <style>
@@ -682,8 +737,24 @@ hr{border:0;border-top:1px dashed #000;margin:2mm 0}
 </style></head><body>
 <div class="hint"><p>Si no se abrió la ventana de impresión, presiona <b>Ctrl + P</b> o el botón. Elige tu ticketera, papel de ${w} mm y márgenes <b>Ninguno</b>.</p><button onclick="print()">Imprimir</button></div>
 ${ticketHtml(n)}
-<script>addEventListener("load",function(){setTimeout(function(){print()},300)})<\/script>
+${autoPrint ? '<script>addEventListener("load",function(){setTimeout(function(){print()},300)})<\/script>' : ""}
 </body></html>`;
+}
+function canPrintLocally() { return !db; }
+function printLocal(n) {
+  const frame = document.createElement("iframe");
+  frame.title = "Impresión de ticket";
+  frame.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0";
+  frame.onload = () => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      frame.contentWindow.addEventListener("afterprint", () => frame.remove(), { once: true });
+      setTimeout(() => frame.remove(), 60000);
+    } catch { frame.remove(); }
+  };
+  document.body.append(frame);
+  frame.srcdoc = printHtml(n, false);
 }
 
 // ---------- notas ----------
@@ -738,7 +809,11 @@ $("#v-notas").addEventListener("click", async e => {
     catch { const ta = document.createElement("textarea"); ta.value = txt; document.body.append(ta); ta.select(); try { document.execCommand("copy"); toast("Nota copiada"); } catch { toast("Selecciona y copia el texto manualmente"); } ta.remove(); }
     return;
   }
-  if (t.id === "n-print" && sel) return saveFile(folioTxt(sel.folio) + "-ticket.html", printHtml(sel));
+  if (t.id === "n-print" && sel) {
+    if (canPrintLocally()) printLocal(sel);
+    else await saveFile(folioTxt(sel.folio) + "-ticket.html", printHtml(sel));
+    return;
+  }
   if (t.id === "n-dl" && sel) return saveFile(folioTxt(sel.folio) + ".txt", ticketText(sel));
   if (t.id === "n-void" && sel) {
     if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = "Confirmar anulación"; return; }
@@ -778,9 +853,17 @@ go(S.view);
   const [d, dl] = c && c.use ? await Promise.all([c.use("db").catch(() => null), c.use("downloads").catch(() => null)]) : [null, null];
   db = d; downloads = dl;
   if (!db) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem("mostrador.data") || "null"); } catch {}
+    if (saved) {
+      mem.products = new Map((saved.products || []).filter(p => p && p.id).map(p => [p.id, p]));
+      mem.notes = new Map((saved.notes || []).filter(n => n && n.id).map(n => [n.id, n]));
+      if (saved.settings) S.settings = { ...S.settings, ...saved.settings };
+      syncMem();
+    }
     S.loaded = true;
     const b = $("#banner");
-    b.textContent = "Esta vista no puede guardar datos: los cambios se pierden al cerrar. Abre la app desde claude.ai con tu cuenta para guardar el inventario y las notas.";
+    b.textContent = "Tus datos se guardan en este navegador. Exporta copias periódicas para respaldarlos.";
     b.hidden = false;
     return renderAll();
   }
