@@ -741,20 +741,43 @@ ${autoPrint ? '<script>addEventListener("load",function(){setTimeout(function(){
 </body></html>`;
 }
 function canPrintLocally() { return !db; }
-function printLocal(n) {
+// Bloquea dobles clics mientras se prepara la impresión, pero nunca para siempre:
+// el bloqueo se libera al volver de print() o, como respaldo, a los 15 s.
+let printingFrame = null, printingSince = 0;
+function printLocal(n, button) {
+  if (printingFrame && Date.now() - printingSince < 15000) return;
+  // Un iframe de una impresión anterior que no avisó afterprint se quita al empezar otra.
+  document.querySelectorAll("iframe[data-ticket-print]").forEach(f => f.remove());
   const w = S.settings.papel === "58" ? 58 : 80;
   const frame = document.createElement("iframe");
+  frame.dataset.ticketPrint = "1";
+  printingFrame = frame; printingSince = Date.now();
+  if (button) button.disabled = true;
   frame.title = "Impresión de ticket";
   frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}mm;height:1000px;border:0;visibility:visible`;
-  frame.onload = () => {
-    try {
-      if (!frame.contentDocument || !frame.contentDocument.querySelector(".ticket")) return;
-      frame.contentWindow.addEventListener("afterprint", () => frame.remove(), { once: true });
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-      setTimeout(() => frame.remove(), 60000);
-    } catch { frame.remove(); }
+  let started = false;
+  const unlock = () => {
+    if (printingFrame === frame) printingFrame = null;
+    if (button) button.disabled = false;
   };
+  const finish = () => { frame.remove(); unlock(); };
+  frame.onload = () => {
+    if (started || !frame.contentDocument || !frame.contentDocument.querySelector(".ticket")) return;
+    started = true;
+    const win = frame.contentWindow, doc = frame.contentDocument;
+    win.addEventListener("afterprint", finish, { once: true });
+    Promise.resolve(doc.fonts && doc.fonts.ready).then(() => new Promise(resolve => {
+      if (win.requestAnimationFrame) win.requestAnimationFrame(() => setTimeout(resolve, 50));
+      else setTimeout(resolve, 100);
+    })).then(() => {
+      if (printingFrame !== frame) return;
+      win.focus();
+      win.print();
+      // Chrome y Edge vuelven de print() al cerrar la vista previa; el iframe se queda hasta afterprint.
+      setTimeout(unlock, 500);
+    }).catch(finish);
+  };
+  frame.onerror = finish;
   frame.srcdoc = printHtml(n, false);
   document.body.append(frame);
 }
@@ -812,7 +835,7 @@ $("#v-notas").addEventListener("click", async e => {
     return;
   }
   if (t.id === "n-print" && sel) {
-    if (canPrintLocally()) printLocal(sel);
+    if (canPrintLocally()) printLocal(sel, t);
     else await saveFile(folioTxt(sel.folio) + "-ticket.html", printHtml(sel));
     return;
   }
