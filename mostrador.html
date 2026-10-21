@@ -742,19 +742,21 @@ ${autoPrint ? '<script>addEventListener("load",function(){setTimeout(function(){
 }
 function canPrintLocally() { return !db; }
 function printLocal(n) {
+  const w = S.settings.papel === "58" ? 58 : 80;
   const frame = document.createElement("iframe");
   frame.title = "Impresión de ticket";
-  frame.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0";
+  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}mm;height:1000px;border:0;visibility:visible`;
   frame.onload = () => {
     try {
+      if (!frame.contentDocument || !frame.contentDocument.querySelector(".ticket")) return;
+      frame.contentWindow.addEventListener("afterprint", () => frame.remove(), { once: true });
       frame.contentWindow.focus();
       frame.contentWindow.print();
-      frame.contentWindow.addEventListener("afterprint", () => frame.remove(), { once: true });
       setTimeout(() => frame.remove(), 60000);
     } catch { frame.remove(); }
   };
-  document.body.append(frame);
   frame.srcdoc = printHtml(n, false);
+  document.body.append(frame);
 }
 
 // ---------- notas ----------
