@@ -202,6 +202,12 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
       <label class="f"><span>Stock actual</span><input type="number" id="p-stock" step="1" inputmode="decimal"></label>
       <label class="f"><span>Stock mínimo</span><input type="number" id="p-minimo" min="0" step="1" inputmode="decimal"></label>
     </div>
+    <details id="p-variations"><summary>Variaciones (opcional)</summary>
+      <div class="grid2" style="margin-top:10px"><label class="f"><span>Tallas (separadas por coma)</span><input id="p-tallas" type="text" placeholder="S, M, L, XL"></label><label class="f"><span>Colores (separados por coma)</span><input id="p-colores" type="text" placeholder="Negro, Blanco, Azul"></label></div>
+      <button type="button" class="btn" id="p-matrix" style="margin-top:8px">Generar matriz talla × color</button>
+      <div id="p-variants" style="display:grid;gap:8px;margin-top:10px"></div>
+      <button type="button" class="btn" id="p-addvariant" style="margin-top:8px">+ Variante suelta</button>
+    </details>
     <label class="f"><span>Unidad</span>
       <select id="p-unidad"><option>und</option><option>kg</option><option>g</option><option>L</option><option>ml</option><option>caja</option><option>paquete</option><option>docena</option><option>m</option></select>
     </label>
@@ -253,7 +259,7 @@ function toast(msg) {
 
 // ---------- semejanza ----------
 const STOP = new Set("de la el los las del con sin para por en y x un una al tipo marca".split(" "));
-const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 const stem = t => t.length > 4 ? t.replace(/(es|s)$/, "").slice(0, 6) : t;
 function tokens(s) { return norm(s).split(" ").filter(t => t.length > 1 && !STOP.has(t) && !/\d/.test(t)).map(stem); }
 function grams(s) { const t = "  " + norm(s) + " "; const g = new Set(); for (let i = 0; i < t.length - 2; i++) g.add(t.slice(i, i + 3)); return g; }
@@ -341,6 +347,7 @@ function failMsg(e) {
 
 // ---------- inventario ----------
 const pendingStock = new Map();
+const totalStock = p => Array.isArray(p.variantes) && p.variantes.length ? p.variantes.reduce((a,v)=>a+n2(v.stock),0) : n2(p.stock);
 function setStockLocal(id, value) {
   const p = S.products.find(x => x.id === id); if (!p) return;
   p.stock = value;
@@ -350,16 +357,23 @@ function setStockLocal(id, value) {
     patchProduct(id, { stock: value, actualizado: new Date().toISOString() }).catch(e => toast(failMsg(e)));
   }, 450));
 }
+function setVariantStock(id, variantId, value) {
+  const p=S.products.find(x=>x.id===id), v=p&&p.variantes&&p.variantes.find(x=>x.id===variantId); if(!v)return;
+  v.stock=value; p.stock=totalStock(p); const key=id+":"+variantId; clearTimeout(pendingStock.get(key));
+  pendingStock.set(key,setTimeout(()=>{pendingStock.delete(key);patchProduct(id,{variantes:p.variantes,stock:p.stock,actualizado:new Date().toISOString()}).catch(e=>toast(failMsg(e)));},450));
+}
 
 function renderInventario() {
   const el = $("#v-inventario");
   const prods = S.products;
   const q = norm(S.q);
-  let list = prods.filter(p => !q || norm(p.nombre + " " + (p.categoria || "") + " " + (p.codigo || "")).includes(q));
-  if (S.lowOnly) list = list.filter(p => n2(p.stock) <= n2(p.minimo));
-  const units = prods.reduce((a, p) => a + Math.max(0, n2(p.stock)), 0);
-  const value = prods.reduce((a, p) => a + Math.max(0, n2(p.stock)) * n2(p.precio), 0);
-  const low = prods.filter(p => n2(p.stock) <= n2(p.minimo)).length;
+  let list = prods.filter(p => !q || norm(p.nombre + " " + (p.categoria || "") + " " + (p.codigo || "") + " " + (p.variantes||[]).map(v=>[v.talla,v.color,v.codigo].join(" ")).join(" ")).includes(q));
+  if (S.lowOnly) list = list.filter(p => p.variantes&&p.variantes.length ? p.variantes.some(v=>n2(v.stock)<=n2(v.minimo??p.minimo)) : n2(p.stock) <= n2(p.minimo));
+  const units = prods.reduce((a, p) => a + Math.max(0, totalStock(p)), 0);
+  const value = prods.reduce((a, p) => a + (p.variantes && p.variantes.length
+    ? p.variantes.reduce((b, v) => b + Math.max(0, n2(v.stock)) * n2(v.precio ?? p.precio), 0)
+    : Math.max(0, n2(p.stock)) * n2(p.precio)), 0);
+  const low = prods.reduce((a,p)=>a+(p.variantes&&p.variantes.length?p.variantes.filter(v=>n2(v.stock)<=n2(v.minimo??p.minimo)).length:Number(n2(p.stock)<=n2(p.minimo))),0);
   const cats = new Set(prods.map(p => (p.categoria || "").trim()).filter(Boolean)).size;
 
   let groups;
@@ -414,8 +428,9 @@ function renderInventario() {
   if (focusId === "invSearch") { const i = $("#invSearch"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
 function rowHtml(p) {
-  const st = n2(p.stock), mn = n2(p.minimo);
+  const st = totalStock(p), mn = n2(p.minimo);
   const chip = st <= 0 ? `<span class="chip out">Agotado</span>` : st <= mn ? `<span class="chip low">Reponer</span>` : "";
+  if(p.variantes&&p.variantes.length) return `<div class="row" style="grid-template-columns:1fr auto"><div class="name"><button data-edit="${esc(p.id)}">${esc(p.nombre)}</button><div class="meta">${esc(p.categoria||"")} ${chip}</div></div><div class="price">${qty(st)} ${esc(p.unidad||"und")}</div><div style="grid-column:1/-1;display:grid;gap:6px">${p.variantes.map(v=>{const n=n2(v.stock), m=n2(v.minimo??p.minimo), mark=n<=0?'<span class="chip out">Agotado</span>':n<=m?'<span class="chip low">Reponer</span>':'';return `<div class="counter"><span style="min-width:120px">${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")} ${mark}</span><button data-vdec="${esc(p.id)}" data-variant="${esc(v.id)}">−</button><input data-vstk="${esc(p.id)}" data-variant="${esc(v.id)}" type="number" value="${n}" aria-label="Stock variante"><button data-vinc="${esc(p.id)}" data-variant="${esc(v.id)}">+</button></div>`}).join("")}</div></div>`;
   return `<div class="row" data-id="${esc(p.id)}">
     <div class="name"><button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
       <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}${mn ? `<span>mín. ${qty(mn)}</span>` : ""}${chip}${p.ejemplo ? `<span class="chip ex">Ejemplo</span>` : ""}</div></div>
@@ -443,6 +458,7 @@ document.addEventListener("click", e => {
     const inp = document.getElementById("stk-" + id); if (inp) inp.value = v;
     return;
   }
+  if(t.dataset.vinc||t.dataset.vdec){const id=t.dataset.vinc||t.dataset.vdec,p=S.products.find(x=>x.id===id),v=p&&p.variantes.find(x=>x.id===t.dataset.variant);if(v){setVariantStock(id,v.id,Math.max(0,n2(v.stock)+(t.dataset.vinc?1:-1)));renderInventario();}return;}
   if (t.id === "saveSettings") {
     const s = { negocio: $("#set-negocio").value.trim() || "Mi negocio", moneda: $("#set-moneda").value.trim() || "S/", papel: $("#set-papel").value };
     putSettings(s).then(() => toast("Datos del negocio guardados")).catch(e => toast(failMsg(e)));
@@ -456,6 +472,7 @@ document.addEventListener("input", e => {
   if (e.target.id === "invSearch") { S.q = e.target.value; renderInventario(); }
 });
 document.addEventListener("change", e => {
+  if(e.target.dataset&&e.target.dataset.vstk){setVariantStock(e.target.dataset.vstk,e.target.dataset.variant,n2(e.target.value));renderInventario();return;}
   const id = e.target.dataset && e.target.dataset.stk;
   if (id) { const v = n2(e.target.value); setStockLocal(id, v); renderInventario(); }
   if (e.target.id === "backupFile" && e.target.files[0]) importBackup(e.target.files[0]);
@@ -498,9 +515,9 @@ async function importBackup(file) {
 }
 
 async function exportCsv() {
-  const rows = [["Nombre", "Categoría", "Código", "Unidad", "Precio", "Stock", "Mínimo"]]
+  const rows = [["Nombre", "Categoría", "Código", "Unidad", "Precio", "Stock", "Mínimo", "Talla", "Color"]]
     .concat([...S.products].sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "", "es") || a.nombre.localeCompare(b.nombre, "es"))
-      .map(p => [p.nombre, p.categoria || "", p.codigo || "", p.unidad || "und", n2(p.precio), n2(p.stock), n2(p.minimo)]));
+      .flatMap(p => p.variantes&&p.variantes.length ? p.variantes.map(v=>[p.nombre,p.categoria||"",v.codigo||p.codigo||"",p.unidad||"und",n2(v.precio??p.precio),n2(v.stock),n2(v.minimo??p.minimo),v.talla||"",v.color||""]) : [[p.nombre,p.categoria||"",p.codigo||"",p.unidad||"und",n2(p.precio),n2(p.stock),n2(p.minimo),"",""]]));
   const csv = "﻿" + rows.map(r => r.map(c => /[",;\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\n");
   await saveFile("inventario-" + new Date().toISOString().slice(0, 10) + ".csv", csv);
 }
@@ -522,6 +539,8 @@ function openProduct(id) {
   $("#p-stock").value = editing ? n2(editing.stock) : "";
   $("#p-minimo").value = editing ? n2(editing.minimo) : "";
   $("#p-unidad").value = editing ? editing.unidad || "und" : "und";
+  $("#p-tallas").value=""; $("#p-colores").value=""; $("#p-variants").innerHTML="";
+  if(editing&&editing.variantes&&editing.variantes.length){$("#p-variations").open=true;editing.variantes.forEach(addVariantEditor);}else $("#p-variations").open=false;
   $("#p-err").hidden = true;
   const del = $("#p-del"); del.hidden = !editing; del.classList.remove("armed"); del.textContent = "Eliminar";
   $("#catlist").innerHTML = [...new Set(S.products.map(p => (p.categoria || "").trim()).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join("");
@@ -529,6 +548,10 @@ function openProduct(id) {
   dlg.showModal();
   setTimeout(() => $("#p-nombre").focus(), 30);
 }
+function addVariantEditor(v={}){const id=v.id||uid(),row=document.createElement("div");row.className="grid3";row.dataset.variantRow="";row.dataset.variantId=id;row.innerHTML=`<label class="f"><span>Talla</span><input data-vfield="talla" value="${esc(v.talla||"")}"></label><label class="f"><span>Color</span><input data-vfield="color" value="${esc(v.color||"")}"></label><label class="f"><span>Stock</span><input data-vfield="stock" type="number" value="${n2(v.stock)}"></label><label class="f"><span>Código (opcional)</span><input data-vfield="codigo" value="${esc(v.codigo||"")}"></label><label class="f"><span>Precio (opcional)</span><input data-vfield="precio" type="number" step="0.01" value="${v.precio==null?"":n2(v.precio)}"></label><button type="button" class="btn danger" data-rmvariant>Quitar</button>`;$("#p-variants").append(row);}
+$("#p-matrix").onclick=()=>{const ts=$("#p-tallas").value.split(",").map(x=>x.trim()).filter(Boolean),cs=$("#p-colores").value.split(",").map(x=>x.trim()).filter(Boolean);if(!ts.length){toast("Escribe al menos una talla");return;}$("#p-variants").innerHTML="";for(const talla of ts)for(const color of(cs.length?cs:[""]))addVariantEditor({talla,color,stock:0});};
+$("#p-addvariant").onclick=()=>addVariantEditor();
+$("#p-variants").addEventListener("click",e=>{if(e.target.closest("[data-rmvariant]"))e.target.closest("[data-variant-row]").remove();});
 function showSimilar() {
   const box = $("#p-similar");
   const sims = mostSimilar($("#p-nombre").value, editing && editing.id);
@@ -561,6 +584,8 @@ $("#pform").addEventListener("submit", async e => {
     precio: n2($("#p-precio").value), stock: n2($("#p-stock").value), minimo: n2($("#p-minimo").value),
     unidad: $("#p-unidad").value, actualizado: new Date().toISOString(),
   };
+  const variants=[...$("#p-variants").querySelectorAll("[data-variant-row]")].map(r=>{const get=k=>r.querySelector(`[data-vfield="${k}"]`).value;const v={id:r.dataset.variantId,talla:get("talla").trim(),color:get("color").trim(),stock:n2(get("stock"))};if(get("codigo").trim())v.codigo=get("codigo").trim();if(get("precio")!=="")v.precio=n2(get("precio"));return v;});
+  if(variants.length){p.variantes=variants;p.stock=variants.reduce((a,v)=>a+n2(v.stock),0);}else delete p.variantes;
   if (!editing) p.creado = p.actualizado;
   delete p.ejemplo;
   const btn = $("#p-save"); btn.disabled = true;
@@ -583,7 +608,7 @@ function renderVenta() {
   const caret = focusId && document.activeElement.selectionStart;
   const q = norm(pickQ);
   const res = q ? S.products.map(p => {
-    const hay = norm(p.nombre + " " + (p.codigo || "") + " " + (p.categoria || ""));
+    const hay = norm(p.nombre + " " + (p.codigo || "") + " " + (p.categoria || "")+" "+(p.variantes||[]).map(v=>[v.talla,v.color,v.codigo].join(" ")).join(" "));
     const s = hay.includes(q) ? 1 + (hay.startsWith(q) ? 0.5 : 0) : similarity({ nombre: pickQ }, p);
     return { p, s };
   }).filter(x => x.s >= 0.35).sort((a, b) => b.s - a.s).slice(0, 8) : [];
@@ -598,15 +623,17 @@ function renderVenta() {
         </div>
         <div class="picker">
           <label class="f"><span>Agregar producto</span><input type="search" id="d-pick" value="${esc(pickQ)}" placeholder="${S.products.length ? "Escribe nombre o código" : "Primero agrega productos en Inventario"}" autocomplete="off"></label>
-          ${q ? `<div class="results">${res.length ? res.map(x => `<button data-addline="${esc(x.p.id)}"><span>${esc(x.p.nombre)}</span><span class="num">${money(x.p.precio)}</span><small>${esc(x.p.categoria || "Sin categoría")}</small><small class="num">stock ${qty(x.p.stock)} ${esc(x.p.unidad || "und")}</small></button>`).join("") : `<div style="padding:10px" class="muted">Sin coincidencias. <button class="btn ghost" data-quickadd="1" style="padding:2px 6px">Crear «${esc(pickQ)}»</button></div>`}</div>` : ""}
+          ${q ? `<div class="results">${res.length ? res.map(x => x.p.variantes&&x.p.variantes.length ? x.p.variantes.map(v=>`<button data-addline="${esc(x.p.id)}" data-variant="${esc(v.id)}"><span>${esc(x.p.nombre)} – ${esc([v.talla,v.color].filter(Boolean).join(" / "))}</span><span class="num">${money(v.precio??x.p.precio)}</span><small>${esc(v.codigo||x.p.codigo||"")}</small><small class="num">stock ${qty(v.stock)} ${esc(x.p.unidad||"und")}</small></button>`).join("") : `<button data-addline="${esc(x.p.id)}"><span>${esc(x.p.nombre)}</span><span class="num">${money(x.p.precio)}</span><small>${esc(x.p.categoria || "Sin categoría")}</small><small class="num">stock ${qty(x.p.stock)} ${esc(x.p.unidad || "und")}</small></button>`).join("") : `<div style="padding:10px" class="muted">Sin coincidencias. <button class="btn ghost" data-quickadd="1" style="padding:2px 6px">Crear «${esc(pickQ)}»</button></div>`}</div>` : ""}
         </div>
         <div class="lines">
           ${draft.items.length ? `<div class="line line-head"><span>Producto</span><span style="text-align:right">Cant.</span><span style="text-align:right">Precio</span><span class="sub">Importe</span><span></span></div>` : ""}
           ${draft.items.map((i, k) => {
             const p = S.products.find(x => x.id === i.productId);
-            const over = p && n2(i.cant) > n2(p.stock);
+            const pv = p && i.variantId && p.variantes ? p.variantes.find(v=>v.id===i.variantId) : null;
+            const available = pv ? n2(pv.stock) : p && totalStock(p);
+            const over = p && n2(i.cant) > available;
             return `<div class="line">
-              <div class="nm">${esc(i.nombre)}<small>${p ? `stock ${qty(p.stock)} ${esc(p.unidad || "und")}` : "producto eliminado"}</small>${over ? `<small class="warnline">Supera el stock disponible</small>` : ""}</div>
+              <div class="nm">${esc(i.nombre)}<small>${p ? `stock ${qty(available)} ${esc(p.unidad || "und")}` : "producto eliminado"}</small>${over ? `<small class="warnline">Supera el stock disponible</small>` : ""}</div>
               <input type="number" id="l-cant-${k}" data-cant="${k}" value="${i.cant}" min="0" step="1" inputmode="decimal" aria-label="Cantidad">
               <input type="number" id="l-precio-${k}" data-precio="${k}" value="${i.precio}" min="0" step="0.01" inputmode="decimal" aria-label="Precio unitario">
               <span class="sub">${money(n2(i.cant) * n2(i.precio))}</span>
@@ -625,15 +652,16 @@ function renderVenta() {
     </div>`;
   if (focusId && document.getElementById(focusId)) { const i = document.getElementById(focusId); i.focus(); try { i.setSelectionRange(caret, caret); } catch {} }
 }
-function addLine(p) {
-  const ex = draft.items.find(i => i.productId === p.id);
+function addLine(p, variant) {
+  if(p.variantes&&p.variantes.length&&!variant)return;
+  const ex = draft.items.find(i => i.productId === p.id && i.variantId === (variant&&variant.id));
   if (ex) ex.cant = n2(ex.cant) + 1;
-  else draft.items.push({ productId: p.id, nombre: p.nombre, unidad: p.unidad || "und", cant: 1, precio: n2(p.precio) });
+  else draft.items.push({ productId: p.id, ...(variant?{variantId:variant.id,talla:variant.talla||"",color:variant.color||""}:{}), nombre: p.nombre+(variant?" – "+[variant.talla,variant.color].filter(Boolean).join(" / "):""), unidad: p.unidad || "und", cant: 1, precio: n2(variant&&variant.precio!=null?variant.precio:p.precio) });
   pickQ = ""; saveDraft(); renderVenta(); $("#d-pick").focus();
 }
 $("#v-venta").addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.addline) { const p = S.products.find(x => x.id === t.dataset.addline); if (p) addLine(p); return; }
+  if (t.dataset.addline) { const p = S.products.find(x => x.id === t.dataset.addline); if (p) addLine(p,t.dataset.variant&&p.variantes&&p.variantes.find(v=>v.id===t.dataset.variant)); return; }
   if (t.dataset.rmline) { draft.items.splice(+t.dataset.rmline, 1); saveDraft(); return renderVenta(); }
   if (t.dataset.quickadd) { const name = pickQ; pickQ = ""; openProduct(null); $("#p-nombre").value = name; showSimilar(); return; }
   if (t.id === "d-clear") { draft = blankDraft(); saveDraft(); return renderVenta(); }
@@ -670,13 +698,12 @@ async function emitNote(btn) {
   } catch (err) { toast(failMsg(err)); btn.disabled = false; }
 }
 async function adjustStock(items, sign) {
-  const byId = {};
-  items.forEach(i => { if (i.productId) byId[i.productId] = (byId[i.productId] || 0) + i.cant; });
-  for (const [id, c] of Object.entries(byId)) {
-    const p = S.products.find(x => x.id === id); if (!p) continue;
-    const v = Math.round((n2(p.stock) + sign * c) * 1000) / 1000;
-    p.stock = v;
-    await patchProduct(id, { stock: v, actualizado: new Date().toISOString() });
+  const byKey = {};
+  items.forEach(i => { if (i.productId) {const key=i.productId+":"+(i.variantId||"");byKey[key]=(byKey[key]||0)+n2(i.cant);} });
+  for (const [key, c] of Object.entries(byKey)) {
+    const [id,vid]=key.split(":"),p=S.products.find(x=>x.id===id); if (!p) continue;
+    if(vid&&p.variantes){const v=p.variantes.find(x=>x.id===vid);if(!v)continue;v.stock=Math.round((n2(v.stock)+sign*c)*1000)/1000;p.stock=totalStock(p);await patchProduct(id,{variantes:p.variantes,stock:p.stock,actualizado:new Date().toISOString()});}
+    else {const v=Math.round((n2(p.stock)+sign*c)*1000)/1000;p.stock=v;await patchProduct(id,{stock:v,actualizado:new Date().toISOString()});}
   }
 }
 
@@ -896,7 +923,12 @@ go(S.view);
   const ready = () => { if (gotP && gotN) S.loaded = true; };
   db.collection("products").onSnapshot(snap => {
     S.products = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .map(p => pendingStock.has(p.id) ? { ...p, stock: (S.products.find(x => x.id === p.id) || p).stock } : p);
+      .map(p => {
+        // conserva el conteo local mientras haya un guardado pendiente del producto o de una de sus variantes
+        const pending = pendingStock.has(p.id) || [...pendingStock.keys()].some(k => k.startsWith(p.id + ":"));
+        const local = pending && S.products.find(x => x.id === p.id);
+        return local ? { ...p, stock: local.stock, ...(local.variantes ? { variantes: local.variantes } : {}) } : p;
+      });
     simCache.clear(); gotP = true; ready();
     // no redibujar mientras se escribe en el stock de una fila
     const a = document.activeElement;
