@@ -269,6 +269,33 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:20;max-width:calc(100vw - 32px)}
 .settings{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:28px;padding-top:16px;border-top:1px solid var(--line)}
+/* Configuración */
+.config-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:24px;align-items:start}
+.config-form{display:grid;gap:14px}
+.config-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:12px}
+.config-card h2,.config-preview h2{margin:0 0 4px;font-size:16px}
+.config-card .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.config-preview{position:sticky;top:20px}
+.check{display:flex;gap:8px;align-items:center;cursor:pointer}
+.f-label{font-size:13px;font-weight:600}
+.paper-options{display:flex}
+.paper-options button{flex:1;padding:12px;font-size:15px}
+.config-save{justify-self:start}
+@media(max-width:899px){
+  .config-layout{grid-template-columns:1fr}
+  .config-preview{position:static}
+  .config-card .row2{grid-template-columns:1fr}
+}
+/* Ticket tipo boleta (también se copia en printHtml) */
+.receipt-box{border:1px solid currentColor;padding:6px;margin:8px 0}
+.product-head,.product-row{display:grid;grid-template-columns:3.2em minmax(0,1fr) auto auto;gap:6px;border-bottom:1px dotted currentColor;padding:4px 0;font-size:.9em}
+.product-head{font-weight:700}
+.product-row>span:not(.desc){text-align:right;white-space:nowrap}
+.narrow-row{display:block}
+.small-detail{display:block;text-align:right}
+.wrap,.desc,.amount-words{overflow-wrap:anywhere;word-break:break-word}
+.amount-words{font-size:.9em;margin-top:4px}
+.disclaimer{font-size:.75em;margin-top:6px;opacity:.75}
 .settings label.f{flex:1 1 180px}
 .auth-screen{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:20px}
 .auth-card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:14px}
@@ -307,6 +334,7 @@ body{height:100dvh;overflow:hidden}
         <button role="tab" data-view="ventas" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/></svg><span>Ventas</span></button>
         <button role="tab" data-view="resumen" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg><span>Resumen</span></button>
         <button role="tab" data-view="usuarios" aria-selected="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Usuarios</span></button>
+        <button role="tab" data-view="config" aria-selected="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 2.9-.2-.1a1.8 1.8 0 0 0-1.9.1 1.8 1.8 0 0 0-.9 1.5v.2H9v-.2a1.8 1.8 0 0 0-1-1.5 1.8 1.8 0 0 0-1.9-.1l-.2.1-1.7-2.9.1-.1a1.7 1.7 0 0 0 .3-1.9 1.8 1.8 0 0 0-1.5-1H3v-3.4h.2a1.8 1.8 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1L6 4.7l.2.1a1.8 1.8 0 0 0 1.9-.1 1.8 1.8 0 0 0 .9-1.5V3h6.1v.2a1.8 1.8 0 0 0 1 1.5 1.8 1.8 0 0 0 1.9.1l.2-.1 1.7 2.9-.1.1a1.7 1.7 0 0 0-.3 1.9 1.8 1.8 0 0 0 1.5 1h.2V14h-.2a1.8 1.8 0 0 0-1.6 1z"/></svg><span>Configuración</span></button>
       </nav>
       <div id="userMenu" class="user-menu" hidden></div>
       <button type="button" id="installApp" class="install-app" hidden>Instalar app</button>
@@ -323,6 +351,7 @@ body{height:100dvh;overflow:hidden}
   <section id="v-ventas" hidden></section>
   <section id="v-resumen" hidden></section>
   <section id="v-usuarios" hidden></section>
+  <section id="v-config" hidden></section>
 </main>
 
 <dialog id="dlg">
@@ -584,6 +613,7 @@ function aplicarPermisosUI() {
   const admin = puede("usuarios.gestionar");
   document.querySelectorAll('[data-view="ventas"],[data-view="resumen"],[data-view="usuarios"]')
     .forEach(button => button.hidden = !admin);
+  document.querySelector('[data-view="config"]').hidden = !puede("ajustes.editar");
   $("#userMenu").hidden = false;
   const user = usuarioActual();
   const role = user?.rol === "admin" ? "Administrador" : "Vendedor";
@@ -768,19 +798,6 @@ function renderInventario() {
             <div class="list">${g.items.map(rowHtml).join("")}</div>
           </div>`).join("")}
     </div>
-    <div class="settings" ${puede("ajustes.editar") ? "" : "hidden"}>
-      <label class="f"><span>Nombre del negocio (sale en las notas)</span><input type="text" id="set-negocio" value="${esc(S.settings.negocio)}"></label>
-      <label class="f" style="flex:0 1 120px"><span>Moneda</span><input type="text" id="set-moneda" value="${esc(S.settings.moneda)}" maxlength="4"></label>
-      <label class="f" style="flex:0 1 170px"><span>Papel de la ticketera</span><select id="set-papel"><option value="80" ${S.settings.papel !== "58" ? "selected" : ""}>80 mm</option><option value="58" ${S.settings.papel === "58" ? "selected" : ""}>58 mm</option></select></label>
-      <div class="f logo-field"><span>Logo del ticket</span>
-        <div class="logo-pick">
-          ${S.settings.logo ? `<img src="${esc(S.settings.logo)}" alt="Logo actual">` : `<span class="muted">Sin logo</span>`}
-          <button class="btn" id="pickLogo">${S.settings.logo ? "Cambiar" : "Subir logo"}</button>
-          ${S.settings.logo ? `<button class="btn" id="removeLogo">Quitar</button>` : ""}
-        </div>
-      </div>
-      <button class="btn" id="saveSettings">Guardar datos</button>
-      ${!db || fbMode ? `<button class="btn" id="exportBackup">Exportar copia</button><button class="btn" id="importBackup">Importar copia</button>` : ""}
     </div>`;
   if (focusId === "invSearch") { const i = $("#invSearch"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
@@ -801,6 +818,101 @@ function rowHtml(p) {
   </div>`;
 }
 
+// Borrador de la configuración: lo que se escribe solo cambia la vista previa
+// hasta pulsar "Guardar configuración". Se descarta al salir de la vista.
+let configDraft = null;
+const CONFIG_SAMPLE_ITEMS = [
+  { cant: 2, unidad: "und", nombre: "Polo algodón – M / Negro", precio: 35 },
+  { cant: 1, unidad: "und", nombre: "Gorra bordada", precio: 25 },
+  { cant: 3, unidad: "und", nombre: "Medias deportivas", precio: 8.5 }
+];
+function configSample() {
+  const total = CONFIG_SAMPLE_ITEMS.reduce((a, i) => a + i.cant * i.precio, 0);
+  return {
+    folio: 123, fecha: new Date().toISOString(), cliente: "Cliente de ejemplo",
+    doc: "12345678", vendedorNombre: usuarioActual()?.nombre || "", total, items: CONFIG_SAMPLE_ITEMS
+  };
+}
+function renderConfigPreview() {
+  const box = $("#configPreview");
+  if (box) box.innerHTML = ticketHtml(configSample(), false, configDraft);
+}
+function renderConfig() {
+  const el = $("#v-config");
+  if (!configDraft) configDraft = { ...S.settings };
+  const s = configDraft;
+  const field = (label, key, placeholder = "", attrs = "") => `
+        <label class="f"><span>${label}</span>
+          <input type="text" data-setting="${key}" value="${esc(s[key] || "")}" placeholder="${esc(placeholder)}" ${attrs}>
+        </label>`;
+  const check = (key, label) => `
+        <label class="check"><input type="checkbox" data-setting="${key}" ${s[key] !== false ? "checked" : ""}> ${label}</label>`;
+  el.innerHTML = `
+    <h1>Configuración</h1>
+    <div class="config-layout">
+      <div class="config-form">
+        <div class="config-card">
+          <h2>Negocio</h2>
+          ${field("Nombre comercial (sale en el ticket)", "negocio", "Mi negocio")}
+          ${field("Razón social (opcional)", "razonSocial")}
+          <div class="row2">
+            ${field("RUC (opcional)", "ruc", "11 dígitos", 'inputmode="numeric" maxlength="11"')}
+            ${field("Moneda", "moneda", "S/", 'maxlength="4"')}
+          </div>
+        </div>
+        <div class="config-card">
+          <h2>Dirección y contacto</h2>
+          ${field("Dirección de la tienda", "direccion", "Av. Principal 123")}
+          ${field("Distrito / ciudad", "ciudad", "Miraflores, Lima")}
+          <div class="row2">
+            ${field("Teléfono / WhatsApp", "telefono", "987 654 321", 'inputmode="tel"')}
+            ${field("Correo (opcional)", "correo", "ventas@mitienda.com", 'inputmode="email"')}
+          </div>
+        </div>
+        <div class="config-card">
+          <h2>Redes sociales y tienda virtual</h2>
+          <div class="row2">
+            ${field("Facebook", "facebook", "@mitienda o enlace")}
+            ${field("Instagram", "instagram", "@mitienda o enlace")}
+          </div>
+          <div class="row2">
+            ${field("TikTok", "tiktok", "@mitienda o enlace")}
+            ${field("Tienda virtual", "web", "mitienda.com")}
+          </div>
+        </div>
+        <div class="config-card">
+          <h2>Ticket</h2>
+          <span class="f-label">Papel de la ticketera</span>
+          <div class="seg paper-options">
+            <button type="button" data-paper="58" aria-pressed="${s.papel === "58"}">58 mm</button>
+            <button type="button" data-paper="80" aria-pressed="${s.papel !== "58"}">80 mm</button>
+          </div>
+          <div class="f logo-field"><span>Logo del ticket</span>
+            <div class="logo-pick">
+              ${s.logo ? `<img src="${esc(s.logo)}" alt="Logo actual">` : `<span class="muted">Sin logo</span>`}
+              <button class="btn" id="pickLogo">${s.logo ? "Cambiar" : "Subir logo"}</button>
+              ${s.logo ? `<button class="btn" id="removeLogo">Quitar</button>` : ""}
+            </div>
+          </div>
+          ${field("Mensaje final", "mensajeFinal", "Gracias por su compra")}
+          ${check("mostrarRedes", "Mostrar redes sociales en el ticket")}
+          ${check("montoEnLetras", "Mostrar monto en letras")}
+        </div>
+        ${!db || fbMode ? `
+        <div class="config-card">
+          <h2>Copia de seguridad</h2>
+          <div class="row-actions"><button class="btn" id="exportBackup">Exportar copia</button> <button class="btn" id="importBackup">Importar copia</button></div>
+        </div>` : ""}
+        <button class="btn primary config-save" id="saveSettings">Guardar configuración</button>
+      </div>
+      <aside class="config-preview">
+        <h2>Vista previa</h2>
+        <div id="configPreview"></div>
+      </aside>
+    </div>`;
+  renderConfigPreview();
+}
+
 document.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
   if (t.dataset.view) return go(t.dataset.view);
@@ -817,15 +929,36 @@ document.addEventListener("click", e => {
   }
   if(t.dataset.vinc||t.dataset.vdec){const id=t.dataset.vinc||t.dataset.vdec,p=S.products.find(x=>x.id===id),v=p&&p.variantes.find(x=>x.id===t.dataset.variant);if(v){setVariantStock(id,v.id,Math.max(0,n2(v.stock)+(t.dataset.vinc?1:-1)));renderInventario();}return;}
   if (t.id === "saveSettings") {
-    // se parte de los ajustes actuales para no borrar el logo
-    const s = { ...S.settings, negocio: $("#set-negocio").value.trim() || "Mi negocio", moneda: $("#set-moneda").value.trim() || "S/", papel: $("#set-papel").value };
-    putSettings(s).then(() => toast("Datos del negocio guardados")).catch(e => toast(failMsg(e)));
+    if (!exigir("ajustes.editar", "guardar la configuración") || !configDraft) return;
+    const values = {};
+    for (const [k, v] of Object.entries(configDraft)) values[k] = typeof v === "string" ? v.trim() : v;
+    if (values.ruc && !/^\d{11}$/.test(values.ruc)) return toast("El RUC debe tener 11 dígitos.");
+    // se parte de los ajustes actuales para no borrar el logo ni otros datos
+    const s = { ...S.settings, ...values, negocio: values.negocio || "Mi negocio", moneda: values.moneda || "S/" };
+    putSettings(s).then(() => {
+      S.settings = s;
+      configDraft = null;
+      $("#bizName").textContent = s.negocio;
+      renderConfig();
+      toast("Configuración guardada");
+    }).catch(e => toast(failMsg(e)));
+    return;
+  }
+  if (t.dataset.paper && configDraft) {
+    configDraft.papel = t.dataset.paper;
+    document.querySelectorAll("[data-paper]").forEach(b => b.setAttribute("aria-pressed", b.dataset.paper === t.dataset.paper));
+    renderConfigPreview();
     return;
   }
   if (t.id === "pickLogo") { $("#logoFile").click(); return; }
   if (t.id === "removeLogo") {
     const s = { ...S.settings }; delete s.logo;
-    putSettings(s).then(() => { toast("Logo quitado"); renderInventario(); }).catch(e => toast(failMsg(e)));
+    putSettings(s).then(() => {
+      S.settings = s;
+      if (configDraft) delete configDraft.logo;
+      toast("Logo quitado");
+      renderConfig();
+    }).catch(e => toast(failMsg(e)));
     return;
   }
   if (t.id === "exportCsv") return exportCsv();
@@ -834,6 +967,11 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("input", e => {
   if (e.target.id === "invSearch") { S.q = e.target.value; renderInventario(); }
+  if (configDraft && e.target.matches("#v-config [data-setting]")) {
+    const input = e.target;
+    configDraft[input.dataset.setting] = input.type === "checkbox" ? input.checked : input.value;
+    renderConfigPreview();
+  }
 });
 document.addEventListener("change", e => {
   if(e.target.dataset&&e.target.dataset.vstk){setVariantStock(e.target.dataset.vstk,e.target.dataset.variant,n2(e.target.value));renderInventario();return;}
@@ -863,7 +1001,14 @@ async function saveLogo(file) {
   g.drawImage(img, 0, 0, c.width, c.height);
   let logo = c.toDataURL("image/png");
   if (logo.length > 150000) logo = c.toDataURL("image/jpeg", 0.85);
-  try { await putSettings({ ...S.settings, logo }); toast("Logo guardado. Ya sale en los tickets."); renderInventario(); }
+  try {
+    const s = { ...S.settings, logo };
+    await putSettings(s);
+    S.settings = s;
+    if (configDraft) configDraft.logo = logo;
+    toast("Logo guardado. Ya sale en los tickets.");
+    renderConfig();
+  }
   catch (e) { toast(failMsg(e)); }
 }
 
@@ -1156,42 +1301,113 @@ async function adjustStock(items, sign) {
 }
 
 // ---------- ticket ----------
-function ticketHtml(n, preview) {
+// Monto en letras como en las boletas: 120.5 → "CIENTO VEINTE CON 50/100 SOLES".
+function numeroALetras(value, moneda = "S/") {
+  const n = Math.round(Math.abs(n2(value)) * 100) / 100;
+  const ent = Math.floor(n), cents = Math.round((n - ent) * 100);
+  const u = ["", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve"];
+  const d10 = ["diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve"];
+  const d20 = ["veinte", "veintiuno", "veintidós", "veintitrés", "veinticuatro", "veinticinco", "veintiséis", "veintisiete", "veintiocho", "veintinueve"];
+  const dec = ["", "", "", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"];
+  const cen = ["", "ciento", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"];
+  const under = x => {
+    if (!x) return "";
+    if (x === 100) return "cien";
+    if (x < 10) return u[x];
+    if (x < 20) return d10[x - 10];
+    if (x < 30) return d20[x - 20];
+    if (x < 100) return dec[Math.floor(x / 10)] + (x % 10 ? " y " + u[x % 10] : "");
+    return cen[Math.floor(x / 100)] + (x % 100 ? " " + under(x % 100) : "");
+  };
+  // Delante de "mil" y "millones": "veintiún mil", "ciento un mil"
+  const apocope = x => under(x).replace(/veintiuno$/, "veintiún").replace(/uno$/, "un");
+  const miles = x => x === 0 ? "" : x === 1 ? "mil" : apocope(x) + " mil";
+  const millones = Math.floor(ent / 1000000), resto = ent % 1000000;
+  const words = [
+    millones === 1 ? "un millón" : millones ? apocope(millones) + " millones" : "",
+    miles(Math.floor(resto / 1000)),
+    under(resto % 1000)
+  ].filter(Boolean).join(" ") || "cero";
+  const nombreMoneda = moneda === "S/" ? "SOLES" : moneda;
+  return `${words.toUpperCase()} CON ${String(cents).padStart(2, "0")}/100 ${nombreMoneda}`.trim();
+}
+// settings permite mostrar la vista previa de Configuración sin guardar.
+function ticketHtml(n, preview, settings = S.settings) {
   const items = n.items || [];
-  return `<div class="ticket" aria-label="Vista de la nota">
+  const s = settings || {};
+  const narrow = s.papel === "58";
+  const address = [s.direccion, s.ciudad].filter(Boolean).map(esc).join(" · ");
+  const social = [
+    s.facebook && "Facebook: " + esc(s.facebook),
+    s.instagram && "Instagram: " + esc(s.instagram),
+    s.tiktok && "TikTok: " + esc(s.tiktok),
+    s.web && "Tienda virtual: " + esc(s.web)
+  ].filter(Boolean);
+  const importe = i => money(n2(i.cant) * n2(i.precio));
+  const rows = items.map(i => narrow
+    ? `<div class="product-row narrow-row"><span class="desc">${esc(i.nombre)}</span><span class="small-detail">${qty(i.cant)} × ${money(i.precio)} = ${importe(i)}</span></div>`
+    : `<div class="product-row"><span>${qty(i.cant)}</span><span class="desc">${esc(i.nombre)}</span><span>${money(i.precio)}</span><span>${importe(i)}</span></div>`).join("");
+  return `<div class="ticket ${narrow ? "paper58" : "paper80"}" aria-label="Vista de la nota">
     ${n.estado === "anulada" ? `<div class="void">ANULADA</div>` : ""}
-    ${/^data:image\//.test(S.settings.logo || "") ? `<div class="c logo"><img src="${esc(S.settings.logo)}" alt=""></div>` : ""}
-    <div class="c biz">${esc(S.settings.negocio)}</div>
-    <div class="c">NOTA DE VENTA</div>
-    <div class="c" style="font-weight:600">${folioTxt(n.folio)}${preview ? " (borrador)" : ""}</div>
-    <hr>
-    <div>Fecha: ${fmtDate(n.fecha)}</div>
+    ${/^data:image\//.test(s.logo || "") ? `<div class="c logo"><img src="${esc(s.logo)}" alt=""></div>` : ""}
+    <div class="c biz">${esc(s.negocio || "Mi negocio")}</div>
+    ${s.razonSocial ? `<div class="c wrap">${esc(s.razonSocial)}</div>` : ""}
+    ${s.ruc ? `<div class="c">RUC: ${esc(s.ruc)}</div>` : ""}
+    ${address ? `<div class="c wrap">${address}</div>` : ""}
+    ${s.telefono ? `<div class="c">Tel./WhatsApp: ${esc(s.telefono)}</div>` : ""}
+    ${s.correo ? `<div class="c wrap">${esc(s.correo)}</div>` : ""}
+    <div class="receipt-box c"><b>NOTA DE VENTA</b><br><b>${folioTxt(n.folio)}</b>${preview ? " (borrador)" : ""}</div>
+    <div>Fecha y hora: ${esc(fmtDate(n.fecha))}</div>
     <div>Cliente: ${esc(n.cliente || "Público en general")}</div>
-    ${n.vendedorNombre ? `<div>Atendió: ${esc(n.vendedorNombre)}</div>` : ""}
     ${n.doc ? `<div>Doc.: ${esc(n.doc)}</div>` : ""}
+    ${n.vendedorNombre ? `<div>Atendió: ${esc(n.vendedorNombre)}</div>` : ""}
     <hr>
-    ${items.length ? items.map(i => `<div class="tr"><span>${qty(i.cant)} ${esc(i.unidad || "und")} ${esc(i.nombre)}</span><span>${money(n2(i.cant) * n2(i.precio))}</span></div><div class="muted" style="font-size:11.5px;color:inherit;opacity:.7">  ${money(i.precio)} c/u</div>`).join("") : `<div class="c" style="opacity:.6">Sin productos todavía</div>`}
-    <hr>
+    ${narrow
+      ? `<div class="product-head narrow-row"><span>DESCRIPCIÓN</span><span class="small-detail">CANT × P.UNIT = IMPORTE</span></div>`
+      : `<div class="product-head"><span>CANT</span><span>DESCRIPCIÓN</span><span>P.UNIT</span><span>IMPORTE</span></div>`}
+    ${rows || `<div class="c" style="opacity:.6">Sin productos todavía</div>`}
+    <div class="tr" style="margin-top:4px"><span>Artículos</span><span>${qty(items.reduce((a, i) => a + n2(i.cant), 0))}</span></div>
     <div class="tr tot"><span>TOTAL</span><span>${money(n.total)}</span></div>
-    <div class="tr" style="opacity:.75"><span>Artículos</span><span>${qty(items.reduce((a, i) => a + n2(i.cant), 0))}</span></div>
-    ${n.obs ? `<hr><div>Obs.: ${esc(n.obs)}</div>` : ""}
-    <hr><div class="c" style="opacity:.75">Gracias por su compra</div>
+    ${s.montoEnLetras !== false ? `<div class="amount-words">SON: ${esc(numeroALetras(n.total, s.moneda || "S/"))}</div>` : ""}
+    ${n.obs ? `<hr><div class="wrap">Obs.: ${esc(n.obs)}</div>` : ""}
+    ${s.mostrarRedes !== false && social.length ? `<hr><div class="c"><b>Síguenos</b></div>${social.map(x => `<div class="c wrap">${x}</div>`).join("")}` : ""}
+    <hr><div class="c">${esc(s.mensajeFinal || "Gracias por su compra")}</div>
+    <div class="c disclaimer">Este documento no es un comprobante de pago</div>
   </div>`;
 }
 function ticketText(n) {
   const W = 36, pad = (l, r) => { l = String(l); r = String(r); const sp = W - l.length - r.length; return sp >= 1 ? l + " ".repeat(sp) + r : l + "\n" + " ".repeat(Math.max(0, W - r.length)) + r; };
   const ctr = s => { s = String(s); const p = Math.max(0, Math.floor((W - s.length) / 2)); return " ".repeat(p) + s; };
   const hr = "-".repeat(W);
-  const L = [ctr(S.settings.negocio.toUpperCase()), ctr("NOTA DE VENTA"), ctr(folioTxt(n.folio)), hr,
-    "Fecha: " + fmtDate(n.fecha), "Cliente: " + (n.cliente || "Público en general")];
-  if (n.vendedorNombre) L.push("Atendió: " + n.vendedorNombre);
+  const s = S.settings || {};
+  const L = [ctr((s.negocio || "Mi negocio").toUpperCase())];
+  if (s.razonSocial) L.push(ctr(s.razonSocial));
+  if (s.ruc) L.push(ctr("RUC: " + s.ruc));
+  if (s.direccion) L.push(ctr(s.direccion));
+  if (s.ciudad) L.push(ctr(s.ciudad));
+  if (s.telefono) L.push(ctr("Tel./WhatsApp: " + s.telefono));
+  if (s.correo) L.push(ctr(s.correo));
+  L.push(hr, ctr("NOTA DE VENTA"), ctr(folioTxt(n.folio)), hr,
+    "Fecha y hora: " + fmtDate(n.fecha), "Cliente: " + (n.cliente || "Público en general"));
   if (n.doc) L.push("Doc.: " + n.doc);
-  L.push(hr);
-  n.items.forEach(i => { L.push(pad(qty(i.cant) + " " + (i.unidad || "und") + " " + i.nombre, money(i.cant * i.precio))); L.push("   " + money(i.precio) + " c/u"); });
+  if (n.vendedorNombre) L.push("Atendió: " + n.vendedorNombre);
+  L.push(hr, pad("DESCRIPCIÓN", "IMPORTE"), hr);
+  (n.items || []).forEach(i => {
+    L.push(i.nombre);
+    L.push(pad("  " + qty(i.cant) + " x " + money(i.precio), money(n2(i.cant) * n2(i.precio))));
+  });
   L.push(hr, pad("TOTAL", money(n.total)));
+  if (s.montoEnLetras !== false) L.push("SON: " + numeroALetras(n.total, s.moneda || "S/"));
   if (n.obs) L.push(hr, "Obs.: " + n.obs);
   if (n.estado === "anulada") L.push(hr, ctr("*** NOTA ANULADA ***"));
-  L.push(hr, ctr("Gracias por su compra"));
+  const social = [
+    s.facebook && "Facebook: " + s.facebook,
+    s.instagram && "Instagram: " + s.instagram,
+    s.tiktok && "TikTok: " + s.tiktok,
+    s.web && "Tienda virtual: " + s.web
+  ].filter(Boolean);
+  if (s.mostrarRedes !== false && social.length) L.push(hr, ctr("Síguenos"), ...social);
+  L.push(hr, ctr(s.mensajeFinal || "Gracias por su compra"), ctr("No es comprobante de pago"));
   return L.join("\n");
 }
 // Archivo independiente para la ticketera: al abrirlo se lanza el diálogo de impresión.
@@ -1204,6 +1420,15 @@ function printHtml(n, autoPrint = true) {
 body{margin:0;background:#fff;color:#000;font-family:"Courier New",Consolas,monospace;font-size:${w === 58 ? 10.5 : 12}px;line-height:1.35}
 .ticket{width:${w}mm;padding:3mm ${w === 58 ? 2 : 3}mm 6mm;position:relative}
 .c{text-align:center}.biz{font-weight:700;font-size:1.25em;text-transform:uppercase}
+.wrap,.desc,.amount-words{overflow-wrap:anywhere;word-break:break-word}
+.receipt-box{border:1px solid #000;padding:1.5mm;margin:2mm 0}
+.product-head,.product-row{display:grid;grid-template-columns:3.2em minmax(0,1fr) auto auto;gap:1mm;border-bottom:1px dotted #000;padding:1mm 0}
+.product-head{font-weight:700}
+.product-row>span:not(.desc){text-align:right;white-space:nowrap}
+.narrow-row{display:block}
+.small-detail{display:block;text-align:right}
+.amount-words{font-size:.9em;margin-top:1mm}
+.disclaimer{font-size:.8em;margin-top:2mm}
 .logo img{display:block;margin:0 auto 2mm;max-width:75%;max-height:24mm;filter:grayscale(1)}
 hr{border:0;border-top:1px dashed #000;margin:2mm 0}
 .tr{display:flex;justify-content:space-between;gap:2mm}.tr span:first-child{min-width:0;overflow-wrap:anywhere}
@@ -1518,7 +1743,8 @@ const mobileViewTitles = {
   notas: "Notas",
   ventas: "Ventas",
   resumen: "Resumen",
-  usuarios: "Usuarios"
+  usuarios: "Usuarios",
+  config: "Configuración"
 };
 function setMobileMenu(open) {
   const header = document.querySelector("header.top");
@@ -1540,14 +1766,15 @@ document.addEventListener("keydown", e => {
 });
 
 function go(view) {
-  const needed = view === "ventas" || view === "resumen" ? "estadisticas.ver" : view === "usuarios" ? "usuarios.gestionar" : null;
+  const needed = view === "ventas" || view === "resumen" ? "estadisticas.ver" : view === "usuarios" ? "usuarios.gestionar" : view === "config" ? "ajustes.editar" : null;
   if (needed && !exigir(needed, "abrir " + view)) view = "inventario";
   if (!puede("inventario.ver") && view === "inventario") return;
   S.view = view;
+  configDraft = null; // lo no guardado en Configuración se descarta al cambiar de vista
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === view));
   $("#mobileTitle").textContent = mobileViewTitles[view] || "Mostrador";
   setMobileMenu(false);
-  ["inventario", "venta", "notas", "ventas", "resumen", "usuarios"].forEach(v => $("#v-" + v).hidden = v !== view);
+  ["inventario", "venta", "notas", "ventas", "resumen", "usuarios", "config"].forEach(v => $("#v-" + v).hidden = v !== view);
   try { history.replaceState(null, "", "#" + view); } catch {}
   renderAll();
   window.scrollTo({ top: 0 });
@@ -1559,6 +1786,7 @@ function renderAll() {
   else if (S.view === "resumen") renderResumen();
   else if (S.view === "ventas") renderVentas();
   else if (S.view === "usuarios") renderUsuarios();
+  else if (S.view === "config") renderConfig();
   else renderNotas();
 }
 
@@ -1958,7 +2186,7 @@ $("#v-usuarios").addEventListener("click", async e => {
 // ---------- arranque ----------
 S.group = store.get("mostrador.group") || "categoria";
 const h = (location.hash || "").slice(1);
-if (["inventario", "venta", "notas", "ventas", "resumen", "usuarios"].includes(h)) S.view = h;
+if (["inventario", "venta", "notas", "ventas", "resumen", "usuarios", "config"].includes(h)) S.view = h;
 renderLogin();
 
 (async () => {
