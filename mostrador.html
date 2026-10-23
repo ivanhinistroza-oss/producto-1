@@ -271,6 +271,16 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .auth-card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:14px}
 .install-app{font:600 13px var(--f-body);text-align:left;background:transparent;color:var(--accent);border:1px solid var(--line);padding:8px 10px;border-radius:6px;cursor:pointer}
 .user-menu{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);display:grid;gap:6px;font-size:13px}
+.auth-card h2{font-size:16px;margin:0}
+.auth-card p{margin:0}
+.auth-screen{overflow-y:auto}
+.auth-sep{border:0;border-top:1px solid var(--line);margin:4px 0}
+.f-stack{display:grid;gap:12px}
+.check{display:flex;align-items:flex-start;gap:8px;font-size:14px}
+.check input{margin-top:3px}
+.invite-list{display:grid;gap:8px}
+.invite-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.invite-code{font-size:20px;letter-spacing:.06em}
 .user-table{width:100%;border-collapse:collapse}.user-table th,.user-table td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
 body{height:100dvh;overflow:hidden}
@@ -365,6 +375,8 @@ const S = {
   selNote: null, online: false, loaded: false,
 };
 let db = null, downloads = null;
+// fuera de claude.ai, servida por http(s), la app usa Firebase; abierta como archivo sigue guardando en el navegador
+const fbMode = !window.claude && /^https?:$/.test(location.protocol);
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const n2 = v => Number.isFinite(+v) ? +v : 0;
@@ -520,11 +532,14 @@ async function iniciarSesion(usuario, pin) {
   return true;
 }
 function cerrarSesion() {
+  if (fbMode) { if (fb) fb.A.signOut(fb.auth); return; }
   sessionId = null;
   storeSession(null);
   renderLogin();
 }
 function renderLogin(error = "") {
+  // con Firebase, las pantallas de cuenta las decide onAuthStateChanged
+  if (fbMode) return fbCargando();
   document.querySelector("header.top").hidden = true;
   document.querySelector("main.wrap").hidden = true;
   let el = $("#authScreen");
@@ -630,6 +645,7 @@ function syncMem() {
 }
 function failMsg(e) {
   const c = e && e.code;
+  if (c === "permission-denied") return "No tienes permiso para guardar esto.";
   if (c === "invalid_argument") return "No tienes permiso para guardar cambios en esta app.";
   if (c === "quota_exceeded") return "El almacén está lleno. Elimina notas o productos antiguos.";
   return "No se pudo guardar. Revisa tu conexión e inténtalo otra vez.";
@@ -753,7 +769,7 @@ function renderInventario() {
       <label class="f" style="flex:0 1 120px"><span>Moneda</span><input type="text" id="set-moneda" value="${esc(S.settings.moneda)}" maxlength="4"></label>
       <label class="f" style="flex:0 1 170px"><span>Papel de la ticketera</span><select id="set-papel"><option value="80" ${S.settings.papel !== "58" ? "selected" : ""}>80 mm</option><option value="58" ${S.settings.papel === "58" ? "selected" : ""}>58 mm</option></select></label>
       <button class="btn" id="saveSettings">Guardar datos</button>
-      ${!db ? `<button class="btn" id="exportBackup">Exportar copia</button><button class="btn" id="importBackup">Importar copia</button>` : ""}
+      ${!db || fbMode ? `<button class="btn" id="exportBackup">Exportar copia</button><button class="btn" id="importBackup">Importar copia</button>` : ""}
     </div>`;
   if (focusId === "invSearch") { const i = $("#invSearch"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
@@ -810,7 +826,7 @@ document.addEventListener("change", e => {
 
 async function exportBackup() {
   if (!exigir("datos.exportar", "exportar copias")) return;
-  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, users: S.users, settings: S.settings }, null, 2);
+  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, users: fbMode ? undefined : S.users, settings: S.settings }, null, 2);
   const name = "mostrador-copia-" + new Date().toISOString().slice(0, 10) + ".json";
   if (downloads) return saveFile(name, data);
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click();
@@ -838,7 +854,7 @@ async function importBackup(file) {
         for (const p of incoming.products) if (p && p.id) await putProduct(p);
         for (const n of incoming.notes) if (n && n.id) await putNote(n);
         await putSettings(incoming.settings);
-        if (Array.isArray(incoming.users)) {
+        if (Array.isArray(incoming.users) && !fbMode) {
           if (mode === "replace") S.users = incoming.users.filter(u => u && u.id);
           else { const merged = new Map(S.users.map(u => [u.id, u])); incoming.users.filter(u => u && u.id).forEach(u => merged.set(u.id, u)); S.users = [...merged.values()]; }
           await putUsers();
@@ -1054,6 +1070,7 @@ async function emitNote(btn) {
   } catch (err) { saleAdjusting = false; toast("No se pudo emitir la nota; se revirtieron los cambios. " + failMsg(err)); btn.disabled = false; }
 }
 async function readNotes() {
+  if (db && db.lastNotes) return db.lastNotes();
   if (db) { const snap = await db.collection("notes").get(); return snap.docs.map(d => ({ id: d.id, ...d.data() })); }
   return [...mem.notes.values()].map(n => ({ ...n }));
 }
@@ -1157,7 +1174,7 @@ ${ticketHtml(n)}
 ${autoPrint ? '<script>addEventListener("load",function(){setTimeout(function(){print()},300)})<\/script>' : ""}
 </body></html>`;
 }
-function canPrintLocally() { return !db; }
+function canPrintLocally() { return !db || fbMode; }
 // Bloquea dobles clics mientras se prepara la impresión, pero nunca para siempre:
 // el bloqueo se libera al volver de print() o, como respaldo, a los 15 s.
 let printingFrame = null, printingSince = 0;
@@ -1280,6 +1297,7 @@ $("#v-notas").addEventListener("click", async e => {
 // ---------- navegación ----------
 function renderUsuarios() {
   if (!exigir("usuarios.gestionar", "gestionar usuarios")) return;
+  if (fbMode) return renderUsuariosFb();
   const el = $("#v-usuarios");
   const admins = S.users.filter(u => u.rol === "admin" && u.activo).length;
   el.innerHTML = `<h1>Usuarios</h1><form id="newUser" class="panel" style="margin:14px 0"><h2>Nuevo usuario</h2><div class="grid2"><label class="f"><span>Nombre</span><input name="nombre" required></label><label class="f"><span>Usuario</span><input name="usuario" required></label><label class="f"><span>Rol</span><select name="rol"><option value="vendedor">Vendedor</option><option value="admin">Administrador</option></select></label><label class="f"><span>PIN</span><input name="pin" type="password" minlength="4" maxlength="12" required></label><label class="f"><span>Confirmar PIN</span><input name="confirmacion" type="password" minlength="4" maxlength="12" required></label></div><p class="warnline" id="userError" hidden></p><button class="btn primary">Crear usuario</button></form><div class="summary-table-wrap"><table class="user-table"><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${S.users.map(u=>`<tr><td>${esc(u.nombre)}</td><td>${esc(u.usuario)}</td><td><select data-role="${esc(u.id)}"><option value="admin" ${u.rol==="admin"?"selected":""}>Administrador</option><option value="vendedor" ${u.rol==="vendedor"?"selected":""}>Vendedor</option></select></td><td>${u.activo?"Activo":"Inactivo"}</td><td><button class="btn" data-reset="${esc(u.id)}">Restablecer PIN</button><button class="btn" data-toggle="${esc(u.id)}">${u.activo?"Desactivar":"Activar"}</button></td></tr>`).join("")}</tbody></table></div><section class="panel" style="margin-top:16px"><h2>Intentos bloqueados</h2><div class="summary-table-wrap"><table class="user-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody>${audit.slice(0,50).map(a=>`<tr><td>${fmtDate(a.fecha)}</td><td>${esc(a.usuario)}</td><td>${esc(a.accion)}</td></tr>`).join("")||"<tr><td colspan=3>Sin registros</td></tr>"}</tbody></table></div><p class="muted">Este control organiza el trabajo en el mostrador. Como todo funciona en el navegador, no reemplaza la seguridad de un sistema con servidor.</p></section>`;
@@ -1303,7 +1321,7 @@ function renderUsuarios() {
         return;
       }
       if (user.activo && user.rol === "admin" && admins <= 1) {
-        toast("No puedes desactivar al ?ltimo administrador activo");
+        toast("No puedes desactivar al último administrador activo");
         return;
       }
       user.activo = !user.activo;
@@ -1499,6 +1517,399 @@ function renderAll() {
   else renderNotas();
 }
 
+// ---------- Firebase: cuentas, negocios y datos compartidos ----------
+// La configuración web de Firebase no es secreta: lo que protege los datos son las reglas (firestore.rules).
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAT7Dy8QCsPg04ga7set8rDlrLSLOl6qt0",
+  authDomain: "producto-1-5a3c5.firebaseapp.com",
+  projectId: "producto-1-5a3c5",
+  storageBucket: "producto-1-5a3c5.firebasestorage.app",
+  messagingSenderId: "554891558363",
+  appId: "1:554891558363:web:47cb29f5532571b4c6bbfe",
+};
+const FB_SDK = "https://www.gstatic.com/firebasejs/12.19.0/";
+const INVITE_HOURS = 48;
+let fb = null;
+let fbUnsubs = [];
+let fbInvitaciones = [];
+let fbNombrePendiente = "";
+
+async function cargarFirebase() {
+  const [appMod, A, F] = await Promise.all([
+    import(FB_SDK + "firebase-app.js"),
+    import(FB_SDK + "firebase-auth.js"),
+    import(FB_SDK + "firebase-firestore.js"),
+  ]);
+  const app = appMod.initializeApp(FIREBASE_CONFIG);
+  let fs;
+  // la caché persistente deja vender sin internet; si el navegador no la permite, se usa solo memoria
+  try {
+    fs = F.initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }),
+    });
+  } catch {
+    fs = F.getFirestore(app);
+  }
+  const auth = A.getAuth(app);
+  auth.languageCode = "es";
+  return { A, F, auth, fs, negocioId: null, dueno: null, invUnsub: null };
+}
+function fbTrack(unsub) { fbUnsubs.push(unsub); return unsub; }
+function fbDetener() {
+  fbUnsubs.forEach(u => { try { u(); } catch {} });
+  fbUnsubs = [];
+  fbInvitaciones = [];
+  if (fb) { fb.invUnsub = null; fb.negocioId = null; fb.dueno = null; }
+  db = null; sessionId = null;
+  S.products = []; S.notes = []; S.users = []; S.loaded = false;
+  S.settings = { negocio: "Mi negocio", moneda: "S/" };
+}
+// sin internet, Firestore guarda el cambio en este equipo y lo envía solo al volver la conexión;
+// esperar la confirmación del servidor dejaría la venta colgada
+function fbWrite(promise) {
+  if (navigator.onLine) return promise;
+  promise.catch(e => toast(failMsg(e)));
+  return Promise.resolve();
+}
+// imita la base db de claude.ai para que el resto de la app funcione igual
+function fbDb(nid) {
+  const { F, fs } = fb;
+  const base = "negocios/" + nid + "/";
+  const wrap = s => ({ id: s.id, exists: s.exists(), data: () => s.data() });
+  const docApi = path => {
+    const ref = F.doc(fs, base + path);
+    return {
+      get: async () => wrap(await F.getDoc(ref)),
+      set: body => fbWrite(F.setDoc(ref, body)),
+      update: patch => fbWrite(F.updateDoc(ref, patch)),
+      delete: () => fbWrite(F.deleteDoc(ref)),
+      onSnapshot: (cb, err) => fbTrack(F.onSnapshot(ref, s => cb(wrap(s)), err)),
+    };
+  };
+  return {
+    doc: docApi,
+    collection: name => ({
+      doc: id => docApi(name + "/" + id),
+      get: async () => ({ docs: (await F.getDocs(F.collection(fs, base + name))).docs.map(wrap) }),
+      onSnapshot: (cb, err) => fbTrack(F.onSnapshot(F.collection(fs, base + name), s => cb({ docs: s.docs.map(wrap) }), err)),
+    }),
+    // para el folio basta la nota más alta; leer todas en cada venta gastaría la cuota gratis
+    lastNotes: async () => {
+      const q = F.query(F.collection(fs, base + "notes"), F.orderBy("folio", "desc"), F.limit(1));
+      return (await F.getDocs(q)).docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+  };
+}
+function fbError(e) {
+  const c = String(e && e.code || "");
+  if (/invalid-credential|wrong-password|user-not-found|invalid-login/.test(c)) return "Correo o contraseña incorrectos.";
+  if (c.includes("email-already-in-use")) return "Ese correo ya tiene cuenta. Usa Entrar.";
+  if (c.includes("weak-password")) return "La contraseña debe tener al menos 6 caracteres.";
+  if (c.includes("invalid-email")) return "Ese correo no es válido.";
+  if (c.includes("too-many-requests")) return "Demasiados intentos. Espera unos minutos.";
+  if (c.includes("network") || c.includes("unavailable")) return "Sin conexión. Revisa tu internet.";
+  if (c.includes("permission-denied")) return "No tienes permiso para esto.";
+  return "Algo falló. Inténtalo otra vez.";
+}
+function fbPantalla(html) {
+  document.querySelector("header.top").hidden = true;
+  document.querySelector("main.wrap").hidden = true;
+  let el = $("#authScreen");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "authScreen";
+    el.className = "auth-screen";
+    document.body.append(el);
+  }
+  el.innerHTML = html;
+  return el;
+}
+function fbCargando(texto = "Cargando…") {
+  fbPantalla('<div class="auth-card"><p class="muted">' + esc(texto) + "</p></div>");
+}
+
+function renderFbLogin(modo = "entrar", error = "", email = "", aviso = "") {
+  const crear = modo === "crear";
+  fbPantalla(`<form class="auth-card" id="fbAuth">
+    <h1>${crear ? "Crear cuenta" : "Entrar a Mostrador"}</h1>
+    ${crear ? '<label class="f"><span>Tu nombre</span><input name="nombre" autocomplete="name" required></label>' : ""}
+    <label class="f"><span>Correo</span><input name="email" type="email" autocomplete="email" value="${esc(email)}" required></label>
+    <label class="f"><span>Contraseña</span><input name="clave" type="password" minlength="6" autocomplete="${crear ? "new-password" : "current-password"}" required></label>
+    ${crear ? '<label class="f"><span>Repite la contraseña</span><input name="clave2" type="password" minlength="6" autocomplete="new-password" required></label>' : ""}
+    ${aviso ? `<p class="muted">${esc(aviso)}</p>` : ""}
+    <p class="warnline">${esc(error)}</p>
+    <button class="btn primary" type="submit">${crear ? "Crear cuenta" : "Entrar"}</button>
+    <button class="btn" type="button" id="fbSwitch">${crear ? "Ya tengo cuenta" : "Crear cuenta nueva"}</button>
+    ${crear ? "" : '<button class="btn ghost" type="button" id="fbReset">Olvidé mi contraseña</button>'}
+  </form>`);
+  const form = $("#fbAuth");
+  $("#fbSwitch").onclick = () => renderFbLogin(crear ? "entrar" : "crear", "", form.email.value);
+  if (!crear) $("#fbReset").onclick = async () => {
+    const correo = form.email.value.trim();
+    if (!correo) return renderFbLogin("entrar", "Escribe tu correo y vuelve a pulsar «Olvidé mi contraseña».");
+    try {
+      await fb.A.sendPasswordResetEmail(fb.auth, correo);
+      renderFbLogin("entrar", "", correo, "Si ese correo tiene cuenta, te llegó un mensaje para crear una contraseña nueva. Revisa también Spam.");
+    } catch (e) { renderFbLogin("entrar", fbError(e), correo); }
+  };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const d = new FormData(form);
+    const correo = String(d.get("email")).trim(), clave = String(d.get("clave"));
+    form.querySelector('[type="submit"]').disabled = true;
+    try {
+      if (crear) {
+        if (clave !== d.get("clave2")) return renderFbLogin("crear", "Las contraseñas no coinciden.", correo);
+        fbNombrePendiente = String(d.get("nombre")).trim();
+        const cred = await fb.A.createUserWithEmailAndPassword(fb.auth, correo, clave);
+        await fb.A.updateProfile(cred.user, { displayName: fbNombrePendiente }).catch(() => {});
+      } else {
+        await fb.A.signInWithEmailAndPassword(fb.auth, correo, clave);
+      }
+      // onAuthStateChanged sigue desde aquí
+    } catch (err) { renderFbLogin(modo, fbError(err), correo); }
+  };
+}
+
+function datosLocales() {
+  try {
+    const d = JSON.parse(localStorage.getItem("mostrador.data") || "null");
+    if (d && ((d.products || []).length || (d.notes || []).length)) return d;
+  } catch {}
+  return null;
+}
+function renderFbNegocio(error = "") {
+  const user = fb.auth.currentUser;
+  const local = datosLocales();
+  fbPantalla(`<div class="auth-card">
+    <h1>Tu negocio</h1>
+    <p class="muted">Entraste como ${esc(user.email)}</p>
+    ${error ? `<p class="warnline" role="alert">${esc(error)}</p>` : ""}
+    <form id="fbCrear" class="f-stack">
+      <h2>Crear mi negocio</h2>
+      <label class="f"><span>Nombre del negocio</span><input name="negocio" required value="${esc(local?.settings?.negocio && local.settings.negocio !== "Mi negocio" ? local.settings.negocio : "")}"></label>
+      ${local ? `<label class="check"><input type="checkbox" name="copiar" checked> Copiar lo que ya tengo en este equipo (${(local.products || []).length} productos y ${(local.notes || []).length} notas)</label>` : ""}
+      <button class="btn primary" type="submit">Crear negocio</button>
+    </form>
+    <hr class="auth-sep">
+    <form id="fbUnirme" class="f-stack">
+      <h2>Unirme con un código</h2>
+      <p class="muted">Pídele el código al administrador del negocio.</p>
+      <label class="f"><span>Código</span><input name="codigo" required autocomplete="off" autocapitalize="characters" placeholder="ABCD-2345"></label>
+      <button class="btn" type="submit">Unirme</button>
+    </form>
+    <button class="btn ghost" type="button" id="fbSalir">Cerrar sesión</button>
+  </div>`);
+  $("#fbSalir").onclick = () => fb.A.signOut(fb.auth);
+  $("#fbCrear").onsubmit = async e => {
+    e.preventDefault();
+    const d = new FormData(e.currentTarget);
+    if (!navigator.onLine) return renderFbNegocio("Necesitas internet para crear tu negocio.");
+    fbCargando("Creando tu negocio…");
+    try { await crearNegocio(String(d.get("negocio")).trim(), d.get("copiar") ? local : null); }
+    catch (err) { renderFbNegocio(fbError(err)); }
+  };
+  $("#fbUnirme").onsubmit = async e => {
+    e.preventDefault();
+    const codigo = String(new FormData(e.currentTarget).get("codigo")).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!navigator.onLine) return renderFbNegocio("Necesitas internet para unirte.");
+    fbCargando("Revisando el código…");
+    try { await unirmeConCodigo(codigo); }
+    catch (err) { renderFbNegocio(err.message && !err.code ? err.message : fbError(err)); }
+  };
+}
+function fbNombreUsuario(user) {
+  return user.displayName || fbNombrePendiente || user.email.split("@")[0];
+}
+async function crearNegocio(nombre, local) {
+  const { F, fs } = fb, user = fb.auth.currentUser;
+  const nid = F.doc(F.collection(fs, "negocios")).id;
+  const batch = F.writeBatch(fs);
+  batch.set(F.doc(fs, "negocios/" + nid), { nombre, dueno: user.uid, creado: F.serverTimestamp() });
+  batch.set(F.doc(fs, "negocios/" + nid + "/miembros/" + user.uid), {
+    nombre: fbNombreUsuario(user), email: user.email, rol: "admin", activo: true, unido: F.serverTimestamp(),
+  });
+  batch.set(F.doc(fs, "usuarios/" + user.uid), { negocioId: nid, email: user.email });
+  await batch.commit();
+  // va aparte: las reglas exigen que ya exista el administrador
+  const ajustes = { moneda: "S/", papel: "80", ...(local?.settings || {}), negocio: nombre };
+  await F.setDoc(F.doc(fs, "negocios/" + nid + "/settings/app"), ajustes);
+  if (local) await copiarDatosLocales(nid, local);
+  await abrirNegocio(nid);
+}
+async function copiarDatosLocales(nid, local) {
+  const { F, fs } = fb;
+  const docs = [
+    ...(local.products || []).filter(p => p && p.id).map(p => ["products", p]),
+    ...(local.notes || []).filter(n => n && n.id).map(n => ["notes", n]),
+  ];
+  // un lote de Firestore admite hasta 500 escrituras
+  for (let i = 0; i < docs.length; i += 400) {
+    fbCargando("Copiando tus datos… " + Math.min(i + 400, docs.length) + " de " + docs.length);
+    const batch = F.writeBatch(fs);
+    docs.slice(i, i + 400).forEach(([col, item]) => {
+      const body = { ...item }; delete body.id;
+      batch.set(F.doc(fs, "negocios/" + nid + "/" + col + "/" + item.id), body);
+    });
+    await batch.commit();
+  }
+}
+async function unirmeConCodigo(codigo) {
+  const { F, fs } = fb, user = fb.auth.currentUser;
+  if (codigo.length !== 8) throw new Error("El código tiene 8 letras y números, por ejemplo ABCD-2345.");
+  const invRef = F.doc(fs, "invitaciones/" + codigo);
+  const inv = await F.getDoc(invRef);
+  if (!inv.exists()) throw new Error("Ese código no existe. Revisa que esté bien escrito.");
+  const d = inv.data();
+  if (d.usadoPor && d.usadoPor !== user.uid) throw new Error("Ese código ya se usó. Pide uno nuevo.");
+  if (d.expira.toMillis() < Date.now()) throw new Error("Ese código venció. Pide uno nuevo.");
+  const batch = F.writeBatch(fs);
+  if (!d.usadoPor) batch.update(invRef, { usadoPor: user.uid });
+  batch.set(F.doc(fs, "negocios/" + d.negocioId + "/miembros/" + user.uid), {
+    nombre: fbNombreUsuario(user), email: user.email, rol: d.rol, activo: true, codigo, unido: F.serverTimestamp(),
+  });
+  batch.set(F.doc(fs, "usuarios/" + user.uid), { negocioId: d.negocioId, email: user.email });
+  await batch.commit();
+  await abrirNegocio(d.negocioId);
+}
+async function fbEntrar(user) {
+  fbCargando("Cargando tu negocio…");
+  const { F, fs } = fb;
+  try {
+    const perfil = await F.getDoc(F.doc(fs, "usuarios/" + user.uid));
+    const nid = perfil.exists() ? perfil.data().negocioId : null;
+    if (!nid) return renderFbNegocio();
+    const miembro = await F.getDoc(F.doc(fs, "negocios/" + nid + "/miembros/" + user.uid));
+    if (!miembro.exists()) return renderFbNegocio();
+    if (!miembro.data().activo) return renderFbNegocio("Tu acceso a ese negocio está desactivado. Habla con el administrador, o crea o únete a otro negocio.");
+    await abrirNegocio(nid);
+  } catch (err) {
+    renderFbNegocio(fbError(err));
+  }
+}
+function fbSinAcceso() {
+  if (!fb || !fb.negocioId) return;
+  fbDetener();
+  renderFbNegocio("Tu acceso a ese negocio fue desactivado. Habla con el administrador.");
+}
+async function abrirNegocio(nid) {
+  const { F, fs } = fb, user = fb.auth.currentUser;
+  fbCargando("Cargando tu negocio…");
+  fb.negocioId = nid;
+  try { fb.dueno = (await F.getDoc(F.doc(fs, "negocios/" + nid))).data()?.dueno || null; } catch {}
+  db = fbDb(nid);
+  sessionId = user.uid;
+  escucharDatos();
+  mostrarConexion();
+}
+function mostrarConexion() {
+  const b = $("#banner");
+  b.textContent = navigator.onLine ? "" : "Sin internet: las ventas se guardan en este equipo y se envían solas cuando vuelva la conexión.";
+  b.hidden = navigator.onLine;
+}
+window.addEventListener("online", () => { if (fbMode && db) mostrarConexion(); });
+window.addEventListener("offline", () => { if (fbMode && db) mostrarConexion(); });
+
+async function iniciarFirebase() {
+  fbCargando();
+  try { fb = await cargarFirebase(); }
+  catch {
+    fbPantalla('<div class="auth-card"><h1>Sin conexión</h1><p class="muted">La primera vez que abres Mostrador en este equipo necesitas internet. Conéctate y recarga la página.</p><button class="btn primary" onclick="location.reload()">Reintentar</button></div>');
+    return;
+  }
+  fb.A.onAuthStateChanged(fb.auth, user => {
+    fbDetener();
+    if (user) fbEntrar(user);
+    else renderFbLogin();
+  });
+}
+
+// ---------- usuarios con Firebase ----------
+const INVITE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function nuevoCodigo() {
+  return [...crypto.getRandomValues(new Uint8Array(8))].map(b => INVITE_CHARS[b % INVITE_CHARS.length]).join("");
+}
+const codigoTxt = c => c.slice(0, 4) + "-" + c.slice(4);
+function escucharInvitaciones() {
+  if (fb.invUnsub) return;
+  const { F, fs } = fb;
+  const q = F.query(F.collection(fs, "invitaciones"), F.where("negocioId", "==", fb.negocioId));
+  fb.invUnsub = fbTrack(F.onSnapshot(q, snap => {
+    fbInvitaciones = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (S.view === "usuarios") renderUsuariosFb();
+  }, () => {}));
+}
+function renderUsuariosFb() {
+  escucharInvitaciones();
+  const el = $("#v-usuarios");
+  const yo = sessionId;
+  const fijo = u => u.id === yo || u.id === fb.dueno;
+  const rolTxt = r => r === "admin" ? "Administrador" : "Vendedor";
+  const vigentes = fbInvitaciones
+    .filter(i => !i.usadoPor && i.expira && i.expira.toMillis() > Date.now())
+    .sort((a, b) => b.expira.toMillis() - a.expira.toMillis());
+  const usuarios = [...S.users].sort((a, b) => (b.activo - a.activo) || String(a.nombre).localeCompare(String(b.nombre), "es"));
+  el.innerHTML = `<h1>Usuarios</h1>
+    <section class="panel" style="margin:14px 0">
+      <h2>Invitar a alguien</h2>
+      <p class="muted">Crea un código y dáselo a la persona. En su celular o computadora abre Mostrador, crea su cuenta y elige <b>Unirme con un código</b>. Cada código sirve para una sola persona y vence en ${INVITE_HOURS} horas.</p>
+      <div class="toolbar">
+        <label class="f" style="flex:0 1 200px"><span>Entrará como</span><select id="invRol"><option value="vendedor">Vendedor</option><option value="admin">Administrador</option></select></label>
+        <button class="btn primary" id="invCrear">Crear código</button>
+      </div>
+      ${vigentes.length ? `<div class="invite-list">${vigentes.map(i => `<div class="invite-row"><b class="invite-code num">${codigoTxt(i.id)}</b><span class="chip">${rolTxt(i.rol)}</span><span class="muted">vence ${fmtDate(i.expira.toDate().toISOString())}</span><button class="btn ghost" data-inv-copy="${esc(i.id)}">Copiar</button><button class="btn ghost" data-inv-del="${esc(i.id)}">Borrar</button></div>`).join("")}</div>` : ""}
+    </section>
+    <div class="summary-table-wrap"><table class="user-table">
+      <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${usuarios.map(u => `<tr>
+        <td>${esc(u.nombre)}${u.id === yo ? ' <span class="chip">tú</span>' : ""}${u.id === fb.dueno ? ' <span class="chip">dueño</span>' : ""}</td>
+        <td>${esc(u.email || "")}</td>
+        <td>${fijo(u) ? rolTxt(u.rol) : `<select data-frol="${esc(u.id)}"><option value="vendedor" ${u.rol !== "admin" ? "selected" : ""}>Vendedor</option><option value="admin" ${u.rol === "admin" ? "selected" : ""}>Administrador</option></select>`}</td>
+        <td>${u.activo ? "Activo" : '<span class="chip out">Desactivado</span>'}</td>
+        <td>${fijo(u) ? "" : `<button class="btn" data-ftoggle="${esc(u.id)}">${u.activo ? "Desactivar" : "Activar"}</button>`}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>
+    <p class="muted" style="margin-top:12px">Cada persona entra con su propio correo y contraseña. Firebase revisa los permisos en el servidor: un vendedor no puede editar productos, anular notas ni ver las estadísticas aunque lo intente.</p>`;
+}
+function fbMiembroRef(id) { return fb.F.doc(fb.fs, "negocios/" + fb.negocioId + "/miembros/" + id); }
+$("#v-usuarios").addEventListener("change", async e => {
+  const id = fbMode && e.target.dataset.frol;
+  if (!id || !exigir("usuarios.gestionar", "cambiar roles")) return;
+  try { await fbWrite(fb.F.updateDoc(fbMiembroRef(id), { rol: e.target.value })); toast("Rol actualizado"); }
+  catch (err) { toast(fbError(err)); renderUsuariosFb(); }
+});
+$("#v-usuarios").addEventListener("click", async e => {
+  if (!fbMode) return;
+  const b = e.target.closest("button");
+  if (!b || !exigir("usuarios.gestionar", "gestionar usuarios")) return;
+  const { F, fs } = fb;
+  try {
+    if (b.id === "invCrear") {
+      if (!navigator.onLine) return toast("Necesitas internet para crear un código");
+      b.disabled = true;
+      const codigo = nuevoCodigo();
+      await F.setDoc(F.doc(fs, "invitaciones/" + codigo), {
+        negocioId: fb.negocioId, negocioNombre: S.settings.negocio, rol: $("#invRol").value,
+        creadoPor: sessionId, creado: F.serverTimestamp(),
+        expira: F.Timestamp.fromMillis(Date.now() + INVITE_HOURS * 3600e3), usadoPor: null,
+      });
+      toast("Código " + codigoTxt(codigo) + " creado");
+    } else if (b.dataset.invCopy) {
+      try { await navigator.clipboard.writeText(codigoTxt(b.dataset.invCopy)); toast("Código copiado"); }
+      catch { toast("Código: " + codigoTxt(b.dataset.invCopy)); }
+    } else if (b.dataset.invDel) {
+      await fbWrite(F.deleteDoc(F.doc(fs, "invitaciones/" + b.dataset.invDel)));
+      toast("Código borrado");
+    } else if (b.dataset.ftoggle) {
+      const u = S.users.find(x => x.id === b.dataset.ftoggle);
+      if (!u) return;
+      if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = u.activo ? "Confirmar desactivación" : "Confirmar activación"; return; }
+      await fbWrite(F.updateDoc(fbMiembroRef(u.id), { activo: !u.activo }));
+    }
+  } catch (err) { toast(fbError(err)); b.disabled = false; }
+});
+
 // ---------- arranque ----------
 S.group = store.get("mostrador.group") || "categoria";
 const h = (location.hash || "").slice(1);
@@ -1506,6 +1917,7 @@ if (["inventario", "venta", "notas", "ventas", "resumen", "usuarios"].includes(h
 renderLogin();
 
 (async () => {
+  if (fbMode) return iniciarFirebase();
   const c = window.claude;
   const [d, dl] = c && c.use ? await Promise.all([c.use("db").catch(() => null), c.use("downloads").catch(() => null)]) : [null, null];
   db = d; downloads = dl;
@@ -1527,8 +1939,21 @@ renderLogin();
     b.hidden = false;
     return renderAll();
   }
+  escucharDatos();
+})();
+// escucha productos, notas, ajustes y usuarios del almacén (db de claude.ai o negocio de Firebase)
+function escucharDatos() {
   let gotP = false, gotN = false, gotU = false;
-  const ready = () => { if (gotP && gotN && gotU) { S.loaded = true; try { sessionId = sessionStorage.getItem("mostrador.session"); } catch {} if (usuarioActual()) renderApp(); else renderLogin(); } };
+  const ready = () => {
+    if (!(gotP && gotN && gotU)) return;
+    const first = !S.loaded;
+    S.loaded = true;
+    if (!fbMode) { try { sessionId = sessionStorage.getItem("mostrador.session"); } catch {} }
+    if (usuarioActual()) { if (first || $("#authScreen")) renderApp(); else { aplicarPermisosUI(); renderAll(); } }
+    else if (fbMode) fbSinAcceso();
+    else renderLogin();
+  };
+  const sinPermiso = e => fbMode && e && e.code === "permission-denied" && fbSinAcceso();
   db.collection("products").onSnapshot(snap => {
     S.products = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .map(p => {
@@ -1543,14 +1968,21 @@ renderLogin();
     if (S.view === "inventario" && a && a.dataset && a.dataset.stk) return;
     if (dlg.open && S.view === "inventario") return;
     renderAll();
-  }, () => { $("#banner").textContent = "Se perdió la conexión con el almacén. Recarga la página."; $("#banner").hidden = false; });
+  }, e => { if (sinPermiso(e)) return; $("#banner").textContent = "Se perdió la conexión con el almacén. Recarga la página."; $("#banner").hidden = false; });
   db.collection("notes").onSnapshot(snap => {
     S.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     gotN = true; ready(); renderAll();
-  }, () => {});
+  }, sinPermiso);
   db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { ...S.settings, ...s.data() }; renderAll(); } }, () => {});
-  db.doc("settings/users").onSnapshot(s => { S.users = s.exists ? (s.data().list || []) : []; gotU = true; ready(); }, () => { gotU = true; ready(); });
-})();
+  if (fbMode) {
+    db.collection("miembros").onSnapshot(snap => {
+      S.users = snap.docs.map(d => ({ id: d.id, usuario: d.data().email, ...d.data() }));
+      gotU = true; ready();
+    }, sinPermiso);
+  } else {
+    db.doc("settings/users").onSnapshot(s => { S.users = s.exists ? (s.data().list || []) : []; gotU = true; ready(); }, () => { gotU = true; ready(); });
+  }
+}
 // ---------- instalación PWA ----------
 let installPrompt = null;
 const installButton = $("#installApp");

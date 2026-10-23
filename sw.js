@@ -1,4 +1,6 @@
-const CACHE_NAME = "mostrador-v1";
+const CACHE_NAME = "mostrador-v2";
+// librerías de Firebase: se guardan para poder abrir la app sin internet
+const SDK_ORIGIN = "https://www.gstatic.com";
 const APP_FILES = [
   "./index.html",
   "./mostrador.html",
@@ -28,7 +30,9 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const request = event.request;
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  const sdk = url.origin === SDK_ORIGIN && url.pathname.startsWith("/firebasejs/");
+  if (request.method !== "GET" || (url.origin !== self.location.origin && !sdk)) return;
   if (request.mode === "navigate" || /\.html(?:$|[?#])/.test(new URL(request.url).pathname)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);

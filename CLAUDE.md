@@ -14,7 +14,8 @@ App web de inventario y notas de venta para una tienda pequeña en Perú (moneda
 La app detecta su entorno al arrancar (`claude.use("db")`):
 
 1. **claude.ai artifact** (https://claude.ai/artifact/PMpTiMmw6pFXKAbB2NbrUG): datos en la base `db` del artifact (colecciones `products`, `notes`, documentos `settings/app` y `settings/users`). Ahí `window.print()` está bloqueado, así que el ticket se descarga (`downloads.save`). **Ojo:** ese artifact NO está actualizado: no tiene variaciones, Resumen nuevo, Ventas, menú lateral ni usuarios. Republicarlo requiere el tool Artifact con `url` y probar el modo db.
-2. **Fuera de claude.ai** (archivo local o GitHub Pages): datos en `localStorage["mostrador.data"]` = `{products, notes, settings, users}`. "Imprimir ticket" imprime directo con un iframe oculto (`printLocal`). Hay Exportar/Importar copia en JSON.
+2. **Servida por http(s) fuera de claude.ai** (GitHub Pages, localhost): **Firebase** (`fbMode`). Proyecto `producto-1-5a3c5`, SDK 12.19.0 desde gstatic con `import()`. Cada persona entra con correo y contraseña; `usuarios/{uid}.negocioId` apunta a su negocio; datos en `negocios/{id}/products|notes|settings|miembros`. `fbDb(nid)` imita la API de la db de claude.ai, así el resto del código no cambia. Invitaciones de un solo uso en `invitaciones/{código}` (48 h). Permisos reales en `firestore.rules` (Iván las pega en Firestore → Reglas). Caché persistente para vender sin internet; `fbWrite` no espera al servidor si no hay conexión. Al crear el negocio ofrece copiar `localStorage["mostrador.data"]`. Para probar sin la cuenta real: copia del HTML con `FB_SDK` apuntando a módulos falsos locales.
+3. **Abierta como archivo** (file://): datos en `localStorage["mostrador.data"]` = `{products, notes, settings, users}`. "Imprimir ticket" imprime directo con un iframe oculto (`printLocal`). Hay Exportar/Importar copia en JSON.
 
 ## Funciones (vistas del menú)
 

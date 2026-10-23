@@ -1,0 +1,88 @@
+rules_version = '2';
+// Reglas de Mostrador. Se pegan en Firebase: Firestore Database → Reglas → Publicar.
+// Cada negocio vive en negocios/{id}; solo sus miembros activos lo ven.
+// El administrador hace todo; el vendedor solo vende (crea notas y descuenta stock).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function miembroPath(nid) { return /databases/$(database)/documents/negocios/$(nid)/miembros/$(request.auth.uid); }
+    function miembro(nid) {
+      return signedIn() && exists(miembroPath(nid)) && get(miembroPath(nid)).data.activo == true;
+    }
+    function admin(nid) { return miembro(nid) && get(miembroPath(nid)).data.rol == 'admin'; }
+    function soloCambia(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos); }
+
+    // a qué negocio entra cada cuenta
+    match /usuarios/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // códigos para unirse a un negocio: un solo uso, vencen
+    match /invitaciones/{codigo} {
+      allow get: if signedIn();
+      allow list: if signedIn() && admin(resource.data.negocioId);
+      allow create: if signedIn()
+        && admin(request.resource.data.negocioId)
+        && request.resource.data.creadoPor == request.auth.uid
+        && request.resource.data.usadoPor == null
+        && request.resource.data.rol in ['admin', 'vendedor']
+        && request.resource.data.expira < request.time + duration.value(3, 'd');
+      allow delete: if signedIn() && admin(resource.data.negocioId);
+      // quien se une marca el código como usado en el mismo lote en que se crea su acceso
+      allow update: if signedIn()
+        && resource.data.usadoPor == null
+        && resource.data.expira > request.time
+        && soloCambia(['usadoPor'])
+        && request.resource.data.usadoPor == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/negocios/$(resource.data.negocioId)/miembros/$(request.auth.uid));
+    }
+
+    match /negocios/{nid} {
+      allow read: if miembro(nid);
+      allow create: if signedIn() && request.resource.data.dueno == request.auth.uid;
+      allow update: if admin(nid) && request.resource.data.dueno == resource.data.dueno;
+
+      match /miembros/{uid} {
+        allow read: if signedIn() && (uid == request.auth.uid || miembro(nid));
+        allow create: if signedIn() && uid == request.auth.uid
+          && request.resource.data.activo == true
+          && (
+            // el dueño al crear su negocio
+            (request.resource.data.rol == 'admin'
+              && getAfter(/databases/$(database)/documents/negocios/$(nid)).data.dueno == request.auth.uid)
+            // alguien que entra con un código válido de este negocio
+            || (getAfter(/databases/$(database)/documents/invitaciones/$(request.resource.data.codigo)).data.negocioId == nid
+              && getAfter(/databases/$(database)/documents/invitaciones/$(request.resource.data.codigo)).data.usadoPor == request.auth.uid
+              && getAfter(/databases/$(database)/documents/invitaciones/$(request.resource.data.codigo)).data.rol == request.resource.data.rol
+              && getAfter(/databases/$(database)/documents/invitaciones/$(request.resource.data.codigo)).data.expira > request.time)
+          );
+        // nadie se cambia a sí mismo y al dueño no se le quita el acceso
+        allow update: if admin(nid) && uid != request.auth.uid
+          && uid != get(/databases/$(database)/documents/negocios/$(nid)).data.dueno
+          && soloCambia(['rol', 'activo'])
+          && request.resource.data.rol in ['admin', 'vendedor'];
+        allow delete: if admin(nid) && uid != request.auth.uid
+          && uid != get(/databases/$(database)/documents/negocios/$(nid)).data.dueno;
+      }
+
+      match /products/{pid} {
+        allow read: if miembro(nid);
+        allow create, delete: if admin(nid);
+        // el vendedor solo descuenta stock al vender
+        allow update: if admin(nid) || (miembro(nid) && soloCambia(['stock', 'variantes', 'actualizado']));
+      }
+
+      match /notes/{id} {
+        allow read: if miembro(nid);
+        allow create: if admin(nid)
+          || (miembro(nid) && request.resource.data.vendedorId == request.auth.uid && request.resource.data.estado == 'emitida');
+        allow update, delete: if admin(nid);
+      }
+
+      match /settings/{doc} {
+        allow read: if miembro(nid);
+        allow write: if admin(nid);
+      }
+    }
+  }
+}
