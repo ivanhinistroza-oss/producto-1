@@ -41,8 +41,11 @@ header.top{position:fixed;inset:0 auto 0 0;width:220px;z-index:15;background:var
 header.top .wrap{display:flex;flex-direction:column;align-items:stretch;gap:22px;padding:20px 14px}
 .brand{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:8px}
 .brand small{font-family:var(--f-body);font-weight:500;font-size:13px;color:var(--muted)}
+.mobile-menu-button,.mobile-title,.drawer-close,.drawer-backdrop{display:none}
+.mobile-drawer{display:contents}
 nav.tabs{display:flex;flex-direction:column;gap:4px;width:100%}
-nav.tabs button{font:600 14px var(--f-body);text-align:left;background:transparent;color:var(--muted);border:0;border-left:3px solid transparent;padding:10px 12px;min-height:40px;border-radius:6px;cursor:pointer}
+nav.tabs button{display:flex;align-items:center;gap:10px;font:600 14px var(--f-body);text-align:left;background:transparent;color:var(--muted);border:0;border-left:3px solid transparent;padding:10px 12px;min-height:40px;border-radius:6px;cursor:pointer}
+nav.tabs button svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--fg);border-left-color:var(--accent)}
 nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .dash-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:14px 0}
@@ -110,16 +113,25 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .heat-legend{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;color:var(--muted)}
 .heat-swatch{width:18px;height:12px;border-radius:2px;border:1px solid var(--line)}
 @media(max-width:899px){
-  header.top{position:relative;inset:auto;width:100%;border-right:0;border-bottom:1px solid var(--line)}
-  header.top .wrap{max-width:1100px;flex-direction:row;align-items:center;gap:8px;padding:10px max(12px,env(safe-area-inset-left,0px))}
-  .brand{font-size:20px}
-  header.top .wrap{flex-wrap:wrap}
-  header.top .install-app{order:3;flex-basis:100%;text-align:center}
-  nav.tabs{position:fixed;inset:auto 0 0;z-index:15;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;background:var(--surface);border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-left,0px)) calc(4px + env(safe-area-inset-bottom,0px))}
-  nav.tabs button{text-align:center;border:0;border-top:3px solid transparent;border-radius:6px;padding:5px 1px;font-size:11px;min-height:42px;white-space:nowrap}
-  nav.tabs button[aria-selected="true"]{border-top-color:var(--accent)}
-  main.wrap{width:100%;height:auto;min-height:calc(100dvh - 120px);margin:0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(100px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow:visible}
-  .toast{bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+  header.top{position:fixed;inset:env(safe-area-inset-top,0px) 0 auto;width:100%;height:56px;z-index:25;border:0;border-bottom:1px solid var(--line)}
+  header.top .wrap{height:100%;max-width:none;display:flex;flex-direction:row;align-items:center;gap:12px;padding:0 max(12px,env(safe-area-inset-right,0px)) 0 max(6px,env(safe-area-inset-left,0px))}
+  .mobile-menu-button{display:inline-flex!important;width:44px;height:44px;align-items:center;justify-content:center;flex:none;border:0;border-radius:8px;background:transparent;color:var(--fg);font-size:24px;cursor:pointer}
+  .mobile-title{display:block!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 19px var(--f-display)}
+  header.top .mobile-drawer{position:fixed;inset:0 auto 0 0;z-index:31;width:min(280px,82vw);height:100dvh;display:flex;flex-direction:column;align-items:stretch;gap:0;overflow-y:auto;background:var(--surface);padding:calc(16px + env(safe-area-inset-top,0px)) 14px calc(16px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));box-shadow:8px 0 28px rgb(0 0 0 / .18);transform:translateX(-105%);visibility:hidden;transition:transform .24s ease,visibility .24s}
+  header.top.menu-open .mobile-drawer{transform:translateX(0);visibility:visible;box-shadow:8px 0 28px rgb(0 0 0 / .18),0 0 0 100vmax rgb(0 0 0 / .48)}
+  nav.tabs{position:static;inset:auto;z-index:auto;width:100%;height:auto;display:flex;flex-direction:column;gap:4px;overflow:visible;background:transparent;padding:0;box-shadow:none;transform:none;visibility:visible;transition:none}
+  nav.tabs button{display:flex;align-items:center;gap:12px;width:100%;height:48px;min-height:48px;padding:0 12px;border:0;border-left:3px solid transparent;border-radius:6px;text-align:left;font-size:14px;white-space:nowrap}
+  nav.tabs button[aria-selected="true"]{border-left-color:var(--accent)}
+  nav.tabs button svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .drawer-head{display:flex!important;align-items:center;justify-content:space-between;gap:10px;padding:0 2px 16px}
+  .drawer-brand{display:grid;gap:2px;font:700 20px var(--f-display)}
+  .drawer-brand small{font:500 13px var(--f-body);color:var(--muted)}
+  .drawer-close{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--fg);font-size:24px;cursor:pointer}
+  .drawer-backdrop{display:none;position:fixed;inset:0;z-index:20;border:0;background:transparent}
+  header.top.menu-open~.drawer-backdrop{display:block}
+  header.top .user-menu{width:100%;margin-top:auto}
+  header.top .install-app{width:100%;text-align:left;margin-top:10px}
+  header.top .drawer-head{margin-bottom:2px}
 }
 @media(max-width:700px){.dash-grid{grid-template-columns:minmax(0,1fr)}.dash-wide{grid-column:auto}.summary-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.bar-row{grid-template-columns:minmax(0,1fr);gap:2px}.bar-label{text-align:left}}
 @media(max-width:700px){.sales-chart{grid-template-columns:64px minmax(600px,1fr)}.sales-axis{font-size:10px}.sales-top-toggle{margin-left:2px}}
@@ -262,24 +274,33 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .user-table{width:100%;border-collapse:collapse}.user-table th,.user-table td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
 body{height:100dvh;overflow:hidden}
-@media(max-width:899px){body{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}main.wrap{width:100%;height:auto;min-height:calc(100dvh - 120px);margin:0;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));overflow:visible}.toast{bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
+@media(max-width:899px){body{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}body.menu-locked{overflow:hidden;touch-action:none}main.wrap{width:100%;max-width:none;height:auto;min-height:100dvh;margin:0;padding:calc(74px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 60px max(16px,env(safe-area-inset-left,0px));overflow:visible}.toast{bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
+@media(max-width:899px) and (prefers-reduced-motion:reduce){header.top .mobile-drawer{transition:none}}
 </style>
 
 <header class="top">
   <div class="wrap">
-    <div class="brand"><span>Mostrador</span><small id="bizName"></small></div>
-    <nav class="tabs" role="tablist">
-      <button role="tab" data-view="inventario" aria-selected="true">Inventario</button>
-      <button role="tab" data-view="venta" aria-selected="false">Nueva venta</button>
-      <button role="tab" data-view="notas" aria-selected="false">Notas</button>
-      <button role="tab" data-view="ventas" aria-selected="false">Ventas</button>
-      <button role="tab" data-view="resumen" aria-selected="false">Resumen</button>
-      <button role="tab" data-view="usuarios" aria-selected="false" hidden>Usuarios</button>
-    </nav>
-    <button type="button" id="installApp" class="install-app" hidden>Instalar app</button>
-    <div id="userMenu" class="user-menu" hidden></div>
+    <button type="button" class="mobile-menu-button" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+    <div class="mobile-title" id="mobileTitle">Inventario</div>
+    <div class="mobile-drawer" id="mobileDrawer">
+      <div class="drawer-head">
+        <div class="brand drawer-brand"><span>Mostrador</span><small id="bizName"></small></div>
+        <button type="button" class="drawer-close" aria-label="Cerrar menú">✕</button>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-view="inventario" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18v12H3zM3 8l2-4h14l2 4M9 12h6"/></svg><span>Inventario</span></button>
+        <button role="tab" data-view="venta" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.5h11.6L21 8H6M9 19a1 1 0 1 0 0 .01M17 19a1 1 0 1 0 0 .01"/></svg><span>Nueva venta</span></button>
+        <button role="tab" data-view="notas" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21zM9 8h6M9 12h6M9 16h4"/></svg><span>Notas</span></button>
+        <button role="tab" data-view="ventas" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/></svg><span>Ventas</span></button>
+        <button role="tab" data-view="resumen" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg><span>Resumen</span></button>
+        <button role="tab" data-view="usuarios" aria-selected="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Usuarios</span></button>
+      </nav>
+      <div id="userMenu" class="user-menu" hidden></div>
+      <button type="button" id="installApp" class="install-app" hidden>Instalar app</button>
+    </div>
   </div>
 </header>
+<button type="button" class="drawer-backdrop" aria-label="Cerrar menú" tabindex="-1"></button>
 
 <main class="wrap">
   <div id="banner" class="banner" hidden></div>
@@ -1428,12 +1449,41 @@ $("#v-ventas").addEventListener("input",e=>{if(e.target.id==="salesSearch"){sale
 $("#v-ventas").addEventListener("click",e=>{const t=e.target.closest("button, tr[data-sales-note]");if(!t)return;if(t.dataset.view)return go(t.dataset.view);if(t.dataset.salesPeriod){salesPeriod=t.dataset.salesPeriod;store.set("mostrador.salesPeriod",salesPeriod);salesLimit=25;return renderVentas();}if(t.dataset.salesMode){salesTopMode=t.dataset.salesMode;return renderVentas();}if(t.dataset.salesSort){if(salesSort===t.dataset.salesSort)salesDir*=-1;else{salesSort=t.dataset.salesSort;salesDir=t.dataset.salesSort==="fecha"?-1:1;}return renderVentas();}if(t.id==="salesMore"){salesLimit+=25;return renderVentas();}if(t.id==="salesExport")return exportSalesCsv(salesInPeriod());if(t.dataset.salesNote){S.selNote=t.dataset.salesNote;return go("notas");}});
 async function exportSalesCsv(notes){if(!exigir("datos.exportar","exportar ventas"))return;const rows=[["Fecha","Folio","Cliente","Producto","Talla","Color","Cantidad","Precio","Importe","Estado"]];notes.forEach(n=>n.items.forEach(i=>{const productName=i.variantId?String(i.nombre||"").replace(/\s+–\s+[^–]*$/,""):i.nombre||"";rows.push([n.fecha||"",folioTxt(n.folio),n.cliente||"",productName,i.talla||"",i.color||"",n2(i.cant),n2(i.precio),n2(i.cant)*n2(i.precio),n.estado==="anulada"?"Anulada":"Emitida"]);}));const csv="\uFEFF"+rows.map(r=>r.map(v=>/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v).join(",")).join("\n");await saveFile(`ventas-${new Date().toISOString().slice(0,10)}.csv`,csv);}
 
+const mobileViewTitles = {
+  inventario: "Inventario",
+  venta: "Nueva venta",
+  notas: "Notas",
+  ventas: "Ventas",
+  resumen: "Resumen",
+  usuarios: "Usuarios"
+};
+function setMobileMenu(open) {
+  const header = document.querySelector("header.top");
+  const toggle = document.querySelector(".mobile-menu-button");
+  header.classList.toggle("menu-open", open);
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
+  document.body.classList.toggle("menu-locked", open);
+}
+document.querySelector(".mobile-menu-button").addEventListener("click", () => {
+  setMobileMenu(!document.querySelector("header.top").classList.contains("menu-open"));
+});
+document.querySelector(".drawer-close").addEventListener("click", () => setMobileMenu(false));
+document.querySelector(".drawer-backdrop").addEventListener("click", () => setMobileMenu(false));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.querySelector("header.top").classList.contains("menu-open")) {
+    setMobileMenu(false);
+  }
+});
+
 function go(view) {
   const needed = view === "ventas" || view === "resumen" ? "estadisticas.ver" : view === "usuarios" ? "usuarios.gestionar" : null;
   if (needed && !exigir(needed, "abrir " + view)) view = "inventario";
   if (!puede("inventario.ver") && view === "inventario") return;
   S.view = view;
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === view));
+  $("#mobileTitle").textContent = mobileViewTitles[view] || "Mostrador";
+  setMobileMenu(false);
   ["inventario", "venta", "notas", "ventas", "resumen", "usuarios"].forEach(v => $("#v-" + v).hidden = v !== view);
   try { history.replaceState(null, "", "#" + view); } catch {}
   renderAll();
