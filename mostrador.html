@@ -244,6 +244,9 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .ticket{background:var(--paper);color:var(--paper-ink);font-family:var(--f-mono);font-size:13px;line-height:1.5;padding:22px 20px 26px;border-radius:4px;box-shadow:0 1px 0 var(--line),0 8px 24px rgb(0 0 0 / .08);position:relative;max-width:420px;width:100%;justify-self:center}
 .ticket::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;background:radial-gradient(circle at 6px 0,transparent 5px,var(--paper) 5.5px) 0 0/12px 8px repeat-x}
 .ticket .c{text-align:center}
+.ticket .logo img{display:block;margin:0 auto 8px;max-width:60%;max-height:90px;mix-blend-mode:multiply}
+.logo-pick{display:flex;align-items:center;gap:8px;min-height:40px}
+.logo-pick img{height:40px;max-width:120px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:4px;padding:2px}
 .ticket .biz{font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:.04em}
 .ticket hr{border:0;border-top:1px dashed currentColor;opacity:.5;margin:10px 0}
 .ticket .tr{display:flex;justify-content:space-between;gap:10px}
@@ -357,6 +360,7 @@ body{height:100dvh;overflow:hidden}
   </form>
 </dialog>
 <input type="file" id="backupFile" accept="application/json,.json" hidden>
+<input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" hidden>
 <dialog id="backupDialog">
   <form method="dialog">
     <h2>Importar copia</h2>
@@ -633,7 +637,7 @@ async function deleteNote(id) {
 async function putSettings(s) {
   if (!exigir("ajustes.editar", "editar ajustes")) return;
   if (db) await db.doc("settings/app").set(s);
-  else { mem.settings = s; S.settings = { ...S.settings, ...s }; syncMem(); }
+  else { mem.settings = s; S.settings = { negocio: "Mi negocio", moneda: "S/", ...s }; syncMem(); }
 }
 function syncMem() {
   S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()]; S.users = [...mem.users.values()];
@@ -768,6 +772,13 @@ function renderInventario() {
       <label class="f"><span>Nombre del negocio (sale en las notas)</span><input type="text" id="set-negocio" value="${esc(S.settings.negocio)}"></label>
       <label class="f" style="flex:0 1 120px"><span>Moneda</span><input type="text" id="set-moneda" value="${esc(S.settings.moneda)}" maxlength="4"></label>
       <label class="f" style="flex:0 1 170px"><span>Papel de la ticketera</span><select id="set-papel"><option value="80" ${S.settings.papel !== "58" ? "selected" : ""}>80 mm</option><option value="58" ${S.settings.papel === "58" ? "selected" : ""}>58 mm</option></select></label>
+      <div class="f logo-field"><span>Logo del ticket</span>
+        <div class="logo-pick">
+          ${S.settings.logo ? `<img src="${esc(S.settings.logo)}" alt="Logo actual">` : `<span class="muted">Sin logo</span>`}
+          <button class="btn" id="pickLogo">${S.settings.logo ? "Cambiar" : "Subir logo"}</button>
+          ${S.settings.logo ? `<button class="btn" id="removeLogo">Quitar</button>` : ""}
+        </div>
+      </div>
       <button class="btn" id="saveSettings">Guardar datos</button>
       ${!db || fbMode ? `<button class="btn" id="exportBackup">Exportar copia</button><button class="btn" id="importBackup">Importar copia</button>` : ""}
     </div>`;
@@ -806,8 +817,15 @@ document.addEventListener("click", e => {
   }
   if(t.dataset.vinc||t.dataset.vdec){const id=t.dataset.vinc||t.dataset.vdec,p=S.products.find(x=>x.id===id),v=p&&p.variantes.find(x=>x.id===t.dataset.variant);if(v){setVariantStock(id,v.id,Math.max(0,n2(v.stock)+(t.dataset.vinc?1:-1)));renderInventario();}return;}
   if (t.id === "saveSettings") {
-    const s = { negocio: $("#set-negocio").value.trim() || "Mi negocio", moneda: $("#set-moneda").value.trim() || "S/", papel: $("#set-papel").value };
+    // se parte de los ajustes actuales para no borrar el logo
+    const s = { ...S.settings, negocio: $("#set-negocio").value.trim() || "Mi negocio", moneda: $("#set-moneda").value.trim() || "S/", papel: $("#set-papel").value };
     putSettings(s).then(() => toast("Datos del negocio guardados")).catch(e => toast(failMsg(e)));
+    return;
+  }
+  if (t.id === "pickLogo") { $("#logoFile").click(); return; }
+  if (t.id === "removeLogo") {
+    const s = { ...S.settings }; delete s.logo;
+    putSettings(s).then(() => { toast("Logo quitado"); renderInventario(); }).catch(e => toast(failMsg(e)));
     return;
   }
   if (t.id === "exportCsv") return exportCsv();
@@ -822,7 +840,32 @@ document.addEventListener("change", e => {
   const id = e.target.dataset && e.target.dataset.stk;
   if (id) { const v = n2(e.target.value); setStockLocal(id, v); renderInventario(); }
   if (e.target.id === "backupFile" && e.target.files[0]) importBackup(e.target.files[0]);
+  if (e.target.id === "logoFile" && e.target.files[0]) { saveLogo(e.target.files[0]); e.target.value = ""; }
 });
+
+// El logo se achica a lo que cabe en una ticketera (máx. 400 × 200 px) y se guarda
+// dentro de los ajustes como imagen en texto, así viaja a todos los equipos.
+async function saveLogo(file) {
+  if (!exigir("ajustes.editar", "cambiar el logo")) return;
+  if (!/^image\//.test(file.type)) return toast("Elige un archivo de imagen (PNG o JPG).");
+  let img;
+  try {
+    const url = URL.createObjectURL(file);
+    img = await new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = url; });
+    URL.revokeObjectURL(url);
+  } catch { return toast("No se pudo abrir esa imagen."); }
+  const k = Math.min(1, 400 / img.naturalWidth, 200 / img.naturalHeight);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(img.naturalWidth * k));
+  c.height = Math.max(1, Math.round(img.naturalHeight * k));
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); // fondo blanco: el papel del ticket
+  g.drawImage(img, 0, 0, c.width, c.height);
+  let logo = c.toDataURL("image/png");
+  if (logo.length > 150000) logo = c.toDataURL("image/jpeg", 0.85);
+  try { await putSettings({ ...S.settings, logo }); toast("Logo guardado. Ya sale en los tickets."); renderInventario(); }
+  catch (e) { toast(failMsg(e)); }
+}
 
 async function exportBackup() {
   if (!exigir("datos.exportar", "exportar copias")) return;
@@ -1117,6 +1160,7 @@ function ticketHtml(n, preview) {
   const items = n.items || [];
   return `<div class="ticket" aria-label="Vista de la nota">
     ${n.estado === "anulada" ? `<div class="void">ANULADA</div>` : ""}
+    ${/^data:image\//.test(S.settings.logo || "") ? `<div class="c logo"><img src="${esc(S.settings.logo)}" alt=""></div>` : ""}
     <div class="c biz">${esc(S.settings.negocio)}</div>
     <div class="c">NOTA DE VENTA</div>
     <div class="c" style="font-weight:600">${folioTxt(n.folio)}${preview ? " (borrador)" : ""}</div>
@@ -1160,6 +1204,7 @@ function printHtml(n, autoPrint = true) {
 body{margin:0;background:#fff;color:#000;font-family:"Courier New",Consolas,monospace;font-size:${w === 58 ? 10.5 : 12}px;line-height:1.35}
 .ticket{width:${w}mm;padding:3mm ${w === 58 ? 2 : 3}mm 6mm;position:relative}
 .c{text-align:center}.biz{font-weight:700;font-size:1.25em;text-transform:uppercase}
+.logo img{display:block;margin:0 auto 2mm;max-width:75%;max-height:24mm;filter:grayscale(1)}
 hr{border:0;border-top:1px dashed #000;margin:2mm 0}
 .tr{display:flex;justify-content:space-between;gap:2mm}.tr span:first-child{min-width:0;overflow-wrap:anywhere}
 .tot{font-weight:700;font-size:1.3em}
@@ -1973,7 +2018,7 @@ function escucharDatos() {
     S.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     gotN = true; ready(); renderAll();
   }, sinPermiso);
-  db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { ...S.settings, ...s.data() }; renderAll(); } }, () => {});
+  db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { negocio: "Mi negocio", moneda: "S/", ...s.data() }; renderAll(); } }, () => {});
   if (fbMode) {
     db.collection("miembros").onSnapshot(snap => {
       S.users = snap.docs.map(d => ({ id: d.id, usuario: d.data().email, ...d.data() }));
