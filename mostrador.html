@@ -23,6 +23,8 @@
   --warn:#f0b462; --warn-soft:#3a2a12; --bad:#f2958e; --bad-soft:#3d1a18; --paper:#1f2624; --paper-ink:#e8e6df; color-scheme:dark}
 
 *{box-sizing:border-box}
+/* fuera de claude.ai no hay reset: sin esto, .btn{display:inline-flex} mostraría botones ocultos por permisos */
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
 .wrap{max-width:1100px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -102,7 +104,7 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
   header.top{position:relative;inset:auto;width:100%;border-right:0;border-bottom:1px solid var(--line)}
   header.top .wrap{max-width:1100px;flex-direction:row;align-items:center;gap:8px;padding:10px max(12px,env(safe-area-inset-left,0px))}
   .brand{font-size:20px}
-  nav.tabs{position:fixed;inset:auto 0 0;z-index:15;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;background:var(--surface);border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-left,0px)) calc(4px + env(safe-area-inset-bottom,0px))}
+  nav.tabs{position:fixed;inset:auto 0 0;z-index:15;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;background:var(--surface);border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-left,0px)) calc(4px + env(safe-area-inset-bottom,0px))}
   nav.tabs button{text-align:center;border:0;border-top:3px solid transparent;border-radius:6px;padding:5px 1px;font-size:11px;min-height:42px;white-space:nowrap}
   nav.tabs button[aria-selected="true"]{border-top-color:var(--accent)}
   main.wrap{width:100%;height:auto;min-height:calc(100dvh - 120px);margin:0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(100px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow:visible}
@@ -242,6 +244,10 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:20;max-width:calc(100vw - 32px)}
 .settings{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-top:28px;padding-top:16px;border-top:1px solid var(--line)}
 .settings label.f{flex:1 1 180px}
+.auth-screen{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:20px}
+.auth-card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:14px}
+.user-menu{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);display:grid;gap:6px;font-size:13px}
+.user-table{width:100%;border-collapse:collapse}.user-table th,.user-table td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
 body{height:100dvh;overflow:hidden}
 @media(max-width:899px){body{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}main.wrap{width:100%;height:auto;min-height:calc(100dvh - 120px);margin:0;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));overflow:visible}.toast{bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
@@ -256,7 +262,9 @@ body{height:100dvh;overflow:hidden}
       <button role="tab" data-view="notas" aria-selected="false">Notas</button>
       <button role="tab" data-view="ventas" aria-selected="false">Ventas</button>
       <button role="tab" data-view="resumen" aria-selected="false">Resumen</button>
+      <button role="tab" data-view="usuarios" aria-selected="false" hidden>Usuarios</button>
     </nav>
+    <div id="userMenu" class="user-menu" hidden></div>
   </div>
 </header>
 
@@ -267,6 +275,7 @@ body{height:100dvh;overflow:hidden}
   <section id="v-notas" hidden></section>
   <section id="v-ventas" hidden></section>
   <section id="v-resumen" hidden></section>
+  <section id="v-usuarios" hidden></section>
 </main>
 
 <dialog id="dlg">
@@ -316,7 +325,7 @@ body{height:100dvh;overflow:hidden}
 (() => {
 // ---------- estado ----------
 const S = {
-  products: [], notes: [],
+  products: [], notes: [], users: [],
   settings: { negocio: "Mi negocio", moneda: "S/" },
   view: "inventario", group: "categoria", q: "", lowOnly: false,
   selNote: null, online: false, loaded: false,
@@ -389,33 +398,186 @@ function clusters(list) {
 }
 
 // ---------- datos ----------
-const mem = { products: new Map(), notes: new Map(), settings: null };
+const mem = { products: new Map(), notes: new Map(), users: new Map(), settings: null };
+const PERMISOS = { admin: ["*"], vendedor: ["inventario.ver", "venta.crear", "nota.ver", "nota.imprimir"] };
+let sessionId = null;
+let saleAdjusting = false;
+let failedLogins = 0;
+let loginBlockedUntil = 0;
+let audit = store.get("mostrador.audit") || [];
+function usuarioActual() {
+  return S.users.find(u => u.id === sessionId && u.activo) || null;
+}
+function puede(permiso) {
+  const user = usuarioActual();
+  const allowed = PERMISOS[user?.rol] || [];
+  return allowed.includes("*") || allowed.includes(permiso);
+}
+function registrarIntento(usuario, accion) {
+  audit.unshift({ fecha: new Date().toISOString(), usuario: String(usuario || ""), accion });
+  audit = audit.slice(0, 50);
+  store.set("mostrador.audit", audit);
+}
+function exigir(permiso, accion) {
+  if (puede(permiso)) return true;
+  // sin sesión (pantalla de inicio o arranque) no hay nadie a quien avisar ni registrar
+  if (!usuarioActual()) return false;
+  registrarIntento(usuarioActual()?.usuario || "sesión", accion);
+  toast("No tienes permiso para " + accion);
+  return false;
+}
+async function hashPin(salt, pin) {
+  if (!crypto.subtle) throw new Error("Este navegador no ofrece SHA-256 seguro. No se pueden crear usuarios.");
+  const bytes = new TextEncoder().encode(salt + pin);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function makeSalt() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function storeSession(id) {
+  try {
+    if (id) sessionStorage.setItem("mostrador.session", id);
+    else sessionStorage.removeItem("mostrador.session");
+  } catch {}
+}
+async function crearUsuario(input) {
+  if (!crypto.subtle) throw new Error("Este navegador no ofrece SHA-256 seguro. No se pueden crear usuarios.");
+  const usuario = input.usuario.trim().toLowerCase();
+  if (!usuario) throw new Error("Escribe un usuario.");
+  if (S.users.some(u => u.usuario === usuario)) throw new Error("Ese usuario ya existe.");
+  const salt = makeSalt();
+  const pinHash = await hashPin(salt, input.pin);
+  const user = {
+    id: uid(), nombre: input.nombre.trim(), usuario,
+    rol: input.rol, activo: true, salt, pinHash,
+    creado: new Date().toISOString(),
+  };
+  S.users.push(user);
+  await putUsers();
+  return user;
+}
+async function iniciarSesion(usuario, pin) {
+  if (Date.now() < loginBlockedUntil) {
+    const seconds = Math.ceil((loginBlockedUntil - Date.now()) / 1000);
+    renderLogin("Demasiados intentos. Espera " + seconds + " s antes de volver a intentar.");
+    return false;
+  }
+  const user = S.users.find(u => u.usuario === usuario.trim().toLowerCase());
+  if (user && !user.activo) {
+    renderLogin("Usuario desactivado; habla con el administrador");
+    return false;
+  }
+  const valid = user && await hashPin(user.salt, pin) === user.pinHash;
+  if (!valid) {
+    failedLogins++;
+    if (failedLogins >= 5) {
+      loginBlockedUntil = Date.now() + 30000;
+      failedLogins = 0;
+    }
+    renderLogin("Usuario o PIN incorrecto");
+    return false;
+  }
+  sessionId = user.id;
+  storeSession(sessionId);
+  failedLogins = 0;
+  renderApp();
+  return true;
+}
+function cerrarSesion() {
+  sessionId = null;
+  storeSession(null);
+  renderLogin();
+}
+function renderLogin(error = "") {
+  document.querySelector("header.top").hidden = true;
+  document.querySelector("main.wrap").hidden = true;
+  let el = $("#authScreen");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "authScreen";
+    el.className = "auth-screen";
+    document.body.append(el);
+  }
+  const first = !S.users.length;
+  const nameField = first ? '<label class="f"><span>Nombre</span><input name="nombre" required></label>' : "";
+  const confirmField = first ? '<label class="f"><span>Confirmar PIN</span><input name="confirmacion" type="password" minlength="4" maxlength="12" required></label>' : "";
+  const title = first ? "Crear administrador" : "Iniciar sesión";
+  el.innerHTML = '<form class="auth-card" id="authForm"><h1>' + title + '</h1>' + nameField +
+    '<label class="f"><span>Usuario</span><input name="usuario" autocomplete="username" required></label>' +
+    '<label class="f"><span>PIN</span><input name="pin" type="password" minlength="4" maxlength="12" autocomplete="current-password" required></label>' +
+    confirmField + '<p class="warnline">' + esc(error) + '</p><button class="btn primary" type="submit">' + title + '</button></form>';
+  $("#authForm").onsubmit = async e => {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const usuario = String(data.get("usuario"));
+    const pin = String(data.get("pin"));
+    if (!first) return iniciarSesion(usuario, pin);
+    if (pin.length < 4 || pin.length > 12 || pin !== data.get("confirmacion")) {
+      return renderLogin("El PIN debe tener 4 a 12 caracteres y coincidir.");
+    }
+    try {
+      const user = await crearUsuario({ nombre: data.get("nombre"), usuario, pin, rol: "admin" });
+      sessionId = user.id;
+      storeSession(sessionId);
+      renderApp();
+    } catch (err) {
+      renderLogin(err.message);
+    }
+  };
+}
+function aplicarPermisosUI() {
+  const admin = puede("usuarios.gestionar");
+  document.querySelectorAll('[data-view="ventas"],[data-view="resumen"],[data-view="usuarios"]')
+    .forEach(button => button.hidden = !admin);
+  $("#userMenu").hidden = false;
+  const user = usuarioActual();
+  const role = user?.rol === "admin" ? "Administrador" : "Vendedor";
+  $("#userMenu").innerHTML = '<b>' + esc(user?.nombre || "") + '</b><span class="chip">' + role +
+    '</span><button class="btn" id="logout">Cerrar sesión</button>';
+  $("#logout").onclick = cerrarSesion;
+}
+function renderApp() {
+  if (!usuarioActual()) return renderLogin();
+  $("#authScreen")?.remove();
+  document.querySelector("header.top").hidden = false;
+  document.querySelector("main.wrap").hidden = false;
+  aplicarPermisosUI();
+  go(S.view);
+}
+async function putUsers() { if (db) await db.doc("settings/users").set({ list: S.users }); else { mem.users = new Map(S.users.map(u => [u.id, u])); syncMem(); } }
 async function putProduct(p) {
+  if (!exigir(editing ? "producto.editar" : "producto.crear", "guardar productos")) return;
   const body = { ...p }; delete body.id;
   if (db) await db.collection("products").doc(p.id).set(body);
   else { mem.products.set(p.id, { ...p }); syncMem(); }
 }
 async function patchProduct(id, patch) {
+  if (!saleAdjusting && (Object.prototype.hasOwnProperty.call(patch, "stock") || Object.prototype.hasOwnProperty.call(patch, "variantes"))) { if (!exigir("stock.ajustar", "ajustar stock")) return; }
   if (db) await db.collection("products").doc(id).update(patch);
   else { const p = mem.products.get(id); if (p) Object.assign(p, patch); syncMem(); }
 }
 async function removeProduct(id) {
+  if (!exigir("producto.eliminar", "eliminar productos")) return;
   if (db) await db.collection("products").doc(id).delete();
   else { mem.products.delete(id); syncMem(); }
 }
 async function putNote(n) {
+  if (n.estado === "anulada" && !exigir("nota.anular", "anular notas")) return;
   const body = { ...n }; delete body.id;
   if (db) await db.collection("notes").doc(n.id).set(body);
   else { mem.notes.set(n.id, { ...n }); syncMem(); }
 }
 async function putSettings(s) {
+  if (!exigir("ajustes.editar", "editar ajustes")) return;
   if (db) await db.doc("settings/app").set(s);
   else { mem.settings = s; S.settings = { ...S.settings, ...s }; syncMem(); }
 }
 function syncMem() {
-  S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()];
+  S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()]; S.users = [...mem.users.values()];
   if (!db) {
-    try { localStorage.setItem("mostrador.data", JSON.stringify({ products: S.products, notes: S.notes, settings: S.settings })); }
+    try { localStorage.setItem("mostrador.data", JSON.stringify({ products: S.products, notes: S.notes, users: S.users, settings: S.settings })); }
     catch { const b = $("#banner"); b.textContent = "No se pudo guardar en este navegador. Exporta una copia y libera espacio."; b.hidden = false; }
   }
   simCache.clear(); renderAll();
@@ -431,6 +593,7 @@ function failMsg(e) {
 const pendingStock = new Map();
 const totalStock = p => Array.isArray(p.variantes) && p.variantes.length ? p.variantes.reduce((a,v)=>a+n2(v.stock),0) : n2(p.stock);
 function setStockLocal(id, value) {
+  if (!exigir("stock.ajustar", "ajustar stock")) return;
   const p = S.products.find(x => x.id === id); if (!p) return;
   p.stock = value;
   clearTimeout(pendingStock.get(id));
@@ -440,6 +603,7 @@ function setStockLocal(id, value) {
   }, 450));
 }
 function setVariantStock(id, variantId, value) {
+  if (!exigir("stock.ajustar", "ajustar stock")) return;
   const p=S.products.find(x=>x.id===id), v=p&&p.variantes&&p.variantes.find(x=>x.id===variantId); if(!v)return;
   v.stock=value; p.stock=totalStock(p); const key=id+":"+variantId; clearTimeout(pendingStock.get(key));
   pendingStock.set(key,setTimeout(()=>{pendingStock.delete(key);patchProduct(id,{variantes:p.variantes,stock:p.stock,actualizado:new Date().toISOString()}).catch(e=>toast(failMsg(e)));},450));
@@ -471,14 +635,14 @@ function renderInventario() {
   el.innerHTML = `
     <div class="toolbar">
       <h1 style="margin-right:auto">Inventario</h1>
-      <button class="btn" id="exportCsv" ${prods.length ? "" : "disabled"}>Exportar CSV</button>
-      <button class="btn primary" id="addProd">+ Producto</button>
+      <button class="btn" id="exportCsv" ${prods.length ? "" : "disabled"} ${puede("datos.exportar") ? "" : "hidden"}>Exportar CSV</button>
+      <button class="btn primary" id="addProd" ${puede("producto.crear") ? "" : "hidden"}>+ Producto</button>
     </div>
     <div class="stats">
       <div class="stat"><b>${prods.length}</b><span>Productos</span></div>
       <div class="stat"><b>${cats}</b><span>Categorías</span></div>
       <div class="stat"><b>${qty(units)}</b><span>Unidades en stock</span></div>
-      <div class="stat"><b>${money(value)}</b><span>Valor a precio de venta</span></div>
+      <div class="stat" ${puede("estadisticas.ver") ? "" : "hidden"}><b>${money(value)}</b><span>Valor a precio de venta</span></div>
       <div class="stat ${low ? "warn" : ""}"><b>${low}</b><span>Por reponer</span></div>
     </div>
     <div class="toolbar">
@@ -500,7 +664,7 @@ function renderInventario() {
             <div class="list">${g.items.map(rowHtml).join("")}</div>
           </div>`).join("")}
     </div>
-    <div class="settings">
+    <div class="settings" ${puede("ajustes.editar") ? "" : "hidden"}>
       <label class="f"><span>Nombre del negocio (sale en las notas)</span><input type="text" id="set-negocio" value="${esc(S.settings.negocio)}"></label>
       <label class="f" style="flex:0 1 120px"><span>Moneda</span><input type="text" id="set-moneda" value="${esc(S.settings.moneda)}" maxlength="4"></label>
       <label class="f" style="flex:0 1 170px"><span>Papel de la ticketera</span><select id="set-papel"><option value="80" ${S.settings.papel !== "58" ? "selected" : ""}>80 mm</option><option value="58" ${S.settings.papel === "58" ? "selected" : ""}>58 mm</option></select></label>
@@ -512,15 +676,15 @@ function renderInventario() {
 function rowHtml(p) {
   const st = totalStock(p), mn = n2(p.minimo);
   const chip = st <= 0 ? `<span class="chip out">Agotado</span>` : st <= mn ? `<span class="chip low">Reponer</span>` : "";
-  if(p.variantes&&p.variantes.length) return `<div class="row" style="grid-template-columns:1fr auto"><div class="name"><button data-edit="${esc(p.id)}">${esc(p.nombre)}</button><div class="meta">${esc(p.categoria||"")} ${chip}</div></div><div class="price">${qty(st)} ${esc(p.unidad||"und")}</div><div style="grid-column:1/-1;display:grid;gap:6px">${p.variantes.map(v=>{const n=n2(v.stock), m=n2(v.minimo??p.minimo), mark=n<=0?'<span class="chip out">Agotado</span>':n<=m?'<span class="chip low">Reponer</span>':'';return `<div class="counter"><span style="min-width:120px">${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")} ${mark}</span><button data-vdec="${esc(p.id)}" data-variant="${esc(v.id)}">−</button><input data-vstk="${esc(p.id)}" data-variant="${esc(v.id)}" type="number" value="${n}" aria-label="Stock variante"><button data-vinc="${esc(p.id)}" data-variant="${esc(v.id)}">+</button></div>`}).join("")}</div></div>`;
+  if(p.variantes&&p.variantes.length) return `<div class="row" style="grid-template-columns:1fr auto"><div class="name"><button data-edit="${esc(p.id)}">${esc(p.nombre)}</button><div class="meta">${esc(p.categoria||"")} ${chip}</div></div><div class="price">${qty(st)} ${esc(p.unidad||"und")}</div><div style="grid-column:1/-1;display:grid;gap:6px">${p.variantes.map(v=>{const n=n2(v.stock), m=n2(v.minimo??p.minimo), mark=n<=0?'<span class="chip out">Agotado</span>':n<=m?'<span class="chip low">Reponer</span>':'';return puede("stock.ajustar")?`<div class="counter"><span style="min-width:120px">${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")} ${mark}</span><button data-vdec="${esc(p.id)}" data-variant="${esc(v.id)}">−</button><input data-vstk="${esc(p.id)}" data-variant="${esc(v.id)}" type="number" value="${n}" aria-label="Stock variante"><button data-vinc="${esc(p.id)}" data-variant="${esc(v.id)}">+</button></div>`:`<div>${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")}: ${qty(n)}</div>`}).join("")}</div></div>`;
   return `<div class="row" data-id="${esc(p.id)}">
     <div class="name"><button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
       <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}${mn ? `<span>mín. ${qty(mn)}</span>` : ""}${chip}${p.ejemplo ? `<span class="chip ex">Ejemplo</span>` : ""}</div></div>
     <div class="price">${money(p.precio)}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
     <div class="counter">
-      <button data-dec="${esc(p.id)}" aria-label="Restar uno a ${esc(p.nombre)}">−</button>
-      <input type="number" id="stk-${esc(p.id)}" data-stk="${esc(p.id)}" value="${st}" step="1" aria-label="Stock de ${esc(p.nombre)}">
-      <button data-inc="${esc(p.id)}" aria-label="Sumar uno a ${esc(p.nombre)}">+</button>
+      ${puede("stock.ajustar") ? `      <button data-dec="${esc(p.id)}" aria-label="Restar uno a ${esc(p.nombre)}">−</button>` : ""}
+      ${puede("stock.ajustar")?`<input type="number" id="stk-${esc(p.id)}" data-stk="${esc(p.id)}" value="${st}" step="1" aria-label="Stock de ${esc(p.nombre)}">`:`<span>${qty(st)}</span>`}
+      ${puede("stock.ajustar")?`<button data-inc="${esc(p.id)}" aria-label="Sumar uno a ${esc(p.nombre)}">+</button>`:""}
       <span class="u">${esc(p.unidad || "und")}</span>
     </div>
   </div>`;
@@ -561,7 +725,8 @@ document.addEventListener("change", e => {
 });
 
 async function exportBackup() {
-  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, settings: S.settings }, null, 2);
+  if (!exigir("datos.exportar", "exportar copias")) return;
+  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, users: S.users, settings: S.settings }, null, 2);
   const name = "mostrador-copia-" + new Date().toISOString().slice(0, 10) + ".json";
   if (downloads) return saveFile(name, data);
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click();
@@ -569,9 +734,10 @@ async function exportBackup() {
 }
 let pendingBackup = null;
 async function importBackup(file) {
+  if (!exigir("datos.importar", "importar copias")) return;
   try {
     const data = JSON.parse(await file.text());
-    if (!Array.isArray(data.products) || !Array.isArray(data.notes) || !data.settings || typeof data.settings !== "object") throw new Error("Formato inválido");
+    if (!Array.isArray(data.products) || !Array.isArray(data.notes) || !data.settings || typeof data.settings !== "object" || (data.users !== undefined && !Array.isArray(data.users))) throw new Error("Formato inválido");
     pendingBackup = data;
     const dialog = $("#backupDialog");
     dialog.returnValue = ""; dialog.showModal();
@@ -588,6 +754,11 @@ async function importBackup(file) {
         for (const p of incoming.products) if (p && p.id) await putProduct(p);
         for (const n of incoming.notes) if (n && n.id) await putNote(n);
         await putSettings(incoming.settings);
+        if (Array.isArray(incoming.users)) {
+          if (mode === "replace") S.users = incoming.users.filter(u => u && u.id);
+          else { const merged = new Map(S.users.map(u => [u.id, u])); incoming.users.filter(u => u && u.id).forEach(u => merged.set(u.id, u)); S.users = [...merged.values()]; }
+          await putUsers();
+        }
         if (!db) syncMem();
         toast(mode === "replace" ? "Copia importada" : "Copia combinada");
       } catch (err) { toast(failMsg(err)); }
@@ -597,6 +768,7 @@ async function importBackup(file) {
 }
 
 async function exportCsv() {
+  if (!exigir("datos.exportar", "exportar CSV")) return;
   const rows = [["Nombre", "Categoría", "Código", "Unidad", "Precio", "Stock", "Mínimo", "Talla", "Color"]]
     .concat([...S.products].sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "", "es") || a.nombre.localeCompare(b.nombre, "es"))
       .flatMap(p => p.variantes&&p.variantes.length ? p.variantes.map(v=>[p.nombre,p.categoria||"",v.codigo||p.codigo||"",p.unidad||"und",n2(v.precio??p.precio),n2(v.stock),n2(v.minimo??p.minimo),v.talla||"",v.color||""]) : [[p.nombre,p.categoria||"",p.codigo||"",p.unidad||"und",n2(p.precio),n2(p.stock),n2(p.minimo),"",""]]));
@@ -612,6 +784,7 @@ async function saveFile(filename, data) {
 const dlg = $("#dlg");
 let editing = null;
 function openProduct(id) {
+  if (!exigir(id ? "producto.editar" : "producto.crear", id ? "editar productos" : "crear productos")) return;
   editing = id ? S.products.find(p => p.id === id) : null;
   $("#pformTitle").textContent = editing ? "Editar producto" : "Nuevo producto";
   $("#p-nombre").value = editing ? editing.nombre : "";
@@ -762,6 +935,7 @@ $("#v-venta").addEventListener("keydown", e => {
   if (e.target.id === "d-pick" && e.key === "Enter") { e.preventDefault(); const b = $("#v-venta [data-addline]"); if (b) b.click(); }
 });
 async function emitNote(btn) {
+  if (!exigir("venta.crear", "crear ventas")) return;
   const items = draft.items.filter(i => n2(i.cant) > 0).map(i => ({ ...i, cant: n2(i.cant), precio: n2(i.precio) }));
   if (!items.length) return;
   btn.disabled = true;
@@ -771,13 +945,17 @@ async function emitNote(btn) {
     items, total: Math.round(items.reduce((a, i) => a + i.cant * i.precio, 0) * 100) / 100, estado: "emitida",
   };
   try {
+    note.vendedorId = usuarioActual()?.id;
+    note.vendedorNombre = usuarioActual()?.nombre;
     await putNote(note);
+    saleAdjusting = true;
     await adjustStock(items, -1);
+    saleAdjusting = false;
     draft = blankDraft(); saveDraft();
     S.selNote = note.id;
     toast("Nota " + folioTxt(note.folio) + " emitida");
     go("notas");
-  } catch (err) { toast(failMsg(err)); btn.disabled = false; }
+  } catch (err) { saleAdjusting = false; toast(failMsg(err)); btn.disabled = false; }
 }
 async function adjustStock(items, sign) {
   const byKey = {};
@@ -800,6 +978,7 @@ function ticketHtml(n, preview) {
     <hr>
     <div>Fecha: ${fmtDate(n.fecha)}</div>
     <div>Cliente: ${esc(n.cliente || "Público en general")}</div>
+    ${n.vendedorNombre ? `<div>Atendió: ${esc(n.vendedorNombre)}</div>` : ""}
     ${n.doc ? `<div>Doc.: ${esc(n.doc)}</div>` : ""}
     <hr>
     ${items.length ? items.map(i => `<div class="tr"><span>${qty(i.cant)} ${esc(i.unidad || "und")} ${esc(i.nombre)}</span><span>${money(n2(i.cant) * n2(i.precio))}</span></div><div class="muted" style="font-size:11.5px;color:inherit;opacity:.7">  ${money(i.precio)} c/u</div>`).join("") : `<div class="c" style="opacity:.6">Sin productos todavía</div>`}
@@ -816,6 +995,7 @@ function ticketText(n) {
   const hr = "-".repeat(W);
   const L = [ctr(S.settings.negocio.toUpperCase()), ctr("NOTA DE VENTA"), ctr(folioTxt(n.folio)), hr,
     "Fecha: " + fmtDate(n.fecha), "Cliente: " + (n.cliente || "Público en general")];
+  if (n.vendedorNombre) L.push("Atendió: " + n.vendedorNombre);
   if (n.doc) L.push("Doc.: " + n.doc);
   L.push(hr);
   n.items.forEach(i => { L.push(pad(qty(i.cant) + " " + (i.unidad || "und") + " " + i.nombre, money(i.cant * i.precio))); L.push("   " + money(i.precio) + " c/u"); });
@@ -894,6 +1074,7 @@ function printLocal(n, button) {
 // ---------- notas ----------
 let notesQ = "";
 function renderNotas() {
+  if (!exigir("nota.ver", "ver notas")) return;
   const el = $("#v-notas");
   const focusId = document.activeElement && document.activeElement.id;
   const notes = [...S.notes].sort((a, b) => n2(b.folio) - n2(a.folio));
@@ -908,9 +1089,9 @@ function renderNotas() {
     <div class="toolbar"><h1 style="margin-right:auto">Notas de venta</h1><button class="btn primary" data-view="venta">+ Nueva venta</button></div>
     <div class="stats">
       <div class="stat"><b>${todays.length}</b><span>Notas de hoy</span></div>
-      <div class="stat"><b>${money(todays.reduce((a, n) => a + n2(n.total), 0))}</b><span>Vendido hoy</span></div>
+      ${puede("estadisticas.ver") ? `<div class="stat"><b>${money(todays.reduce((a, n) => a + n2(n.total), 0))}</b><span>Vendido hoy</span></div>` : ""}
       <div class="stat"><b>${valid.length}</b><span>Notas emitidas</span></div>
-      <div class="stat"><b>${money(valid.reduce((a, n) => a + n2(n.total), 0))}</b><span>Total vendido</span></div>
+      ${puede("estadisticas.ver") ? `<div class="stat"><b>${money(valid.reduce((a, n) => a + n2(n.total), 0))}</b><span>Total vendido</span></div>` : ""}
     </div>
     <div class="notes">
       <div>
@@ -923,10 +1104,10 @@ function renderNotas() {
       </div>
       <div style="display:flex;flex-direction:column">
         ${sel ? ticketHtml(sel) + `<div class="ticket-actions">
-            <button class="btn primary" id="n-print">Imprimir ticket</button>
-            <button class="btn" id="n-copy">Copiar texto</button>
-            <button class="btn" id="n-dl">Descargar .txt</button>
-            ${sel.estado !== "anulada" ? `<button class="btn danger" id="n-void">Anular y devolver stock</button>` : ""}
+            <button class="btn primary" id="n-print" ${puede("nota.imprimir") ? "" : "hidden"}>Imprimir ticket</button>
+            <button class="btn" id="n-copy" ${puede("nota.imprimir") ? "" : "hidden"}>Copiar texto</button>
+            <button class="btn" id="n-dl" ${puede("nota.imprimir") ? "" : "hidden"}>Descargar .txt</button>
+            ${sel.estado !== "anulada" && puede("nota.anular") ? `<button class="btn danger" id="n-void">Anular y devolver stock</button>` : ""}
           </div>` : ""}
       </div>
     </div>`;
@@ -937,6 +1118,7 @@ $("#v-notas").addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   const sel = S.notes.find(n => n.id === S.selNote);
   if (t.dataset.note) { S.selNote = t.dataset.note; return renderNotas(); }
+  if ((t.id === "n-copy" || t.id === "n-print" || t.id === "n-dl") && !exigir("nota.imprimir", "imprimir notas")) return;
   if (t.id === "n-copy" && sel) {
     const txt = ticketText(sel);
     try { await navigator.clipboard.writeText(txt); toast("Nota copiada"); }
@@ -950,6 +1132,7 @@ $("#v-notas").addEventListener("click", async e => {
   }
   if (t.id === "n-dl" && sel) return saveFile(folioTxt(sel.folio) + ".txt", ticketText(sel));
   if (t.id === "n-void" && sel) {
+    if (!exigir("nota.anular", "anular notas")) return;
     if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = "Confirmar anulación"; return; }
     t.disabled = true;
     try {
@@ -961,6 +1144,60 @@ $("#v-notas").addEventListener("click", async e => {
 });
 
 // ---------- navegación ----------
+function renderUsuarios() {
+  if (!exigir("usuarios.gestionar", "gestionar usuarios")) return;
+  const el = $("#v-usuarios");
+  const admins = S.users.filter(u => u.rol === "admin" && u.activo).length;
+  el.innerHTML = `<h1>Usuarios</h1><form id="newUser" class="panel" style="margin:14px 0"><h2>Nuevo usuario</h2><div class="grid2"><label class="f"><span>Nombre</span><input name="nombre" required></label><label class="f"><span>Usuario</span><input name="usuario" required></label><label class="f"><span>Rol</span><select name="rol"><option value="vendedor">Vendedor</option><option value="admin">Administrador</option></select></label><label class="f"><span>PIN</span><input name="pin" type="password" minlength="4" maxlength="12" required></label><label class="f"><span>Confirmar PIN</span><input name="confirmacion" type="password" minlength="4" maxlength="12" required></label></div><p class="warnline" id="userError" hidden></p><button class="btn primary">Crear usuario</button></form><div class="summary-table-wrap"><table class="user-table"><thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${S.users.map(u=>`<tr><td>${esc(u.nombre)}</td><td>${esc(u.usuario)}</td><td><select data-role="${esc(u.id)}"><option value="admin" ${u.rol==="admin"?"selected":""}>Administrador</option><option value="vendedor" ${u.rol==="vendedor"?"selected":""}>Vendedor</option></select></td><td>${u.activo?"Activo":"Inactivo"}</td><td><button class="btn" data-reset="${esc(u.id)}">Restablecer PIN</button><button class="btn" data-toggle="${esc(u.id)}">${u.activo?"Desactivar":"Activar"}</button></td></tr>`).join("")}</tbody></table></div><section class="panel" style="margin-top:16px"><h2>Intentos bloqueados</h2><div class="summary-table-wrap"><table class="user-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody>${audit.slice(0,50).map(a=>`<tr><td>${fmtDate(a.fecha)}</td><td>${esc(a.usuario)}</td><td>${esc(a.accion)}</td></tr>`).join("")||"<tr><td colspan=3>Sin registros</td></tr>"}</tbody></table></div><p class="muted">Este control organiza el trabajo en el mostrador. Como todo funciona en el navegador, no reemplaza la seguridad de un sistema con servidor.</p></section>`;
+  $("#newUser").onsubmit = async e => { e.preventDefault(); if (!exigir("usuarios.gestionar", "crear usuarios")) return; const f = new FormData(e.currentTarget); if (f.get("pin") !== f.get("confirmacion")) { $("#userError").textContent="Los PIN no coinciden."; $("#userError").hidden=false; return; } try { await crearUsuario({ nombre:f.get("nombre"), usuario:f.get("usuario"), rol:f.get("rol"), pin:f.get("pin") }); renderUsuarios(); } catch(err) { $("#userError").textContent=err.message; $("#userError").hidden=false; } };
+  el.onchange = async e => { const id=e.target.dataset.role; if (!id) return; if (!exigir("usuarios.gestionar","cambiar roles")) return; const u=S.users.find(x=>x.id===id); if (!u) return; if (u.rol==="admin" && e.target.value!=="admin" && u.activo && admins<=1) { toast("No puedes bajar al último administrador activo"); return renderUsuarios(); } u.rol=e.target.value; await putUsers(); aplicarPermisosUI(); if (u.id === sessionId && u.rol !== "admin") return go("inventario"); renderUsuarios(); };
+  el.onclick = async e => {
+    const button = e.target.closest("button");
+    if (!button) return;
+    if (!exigir("usuarios.gestionar", "gestionar usuarios")) return;
+    const id = button.dataset.toggle || button.dataset.reset || button.dataset.resetSave;
+    const user = S.users.find(item => item.id === id);
+    if (!user) return;
+    if (button.dataset.toggle) {
+      if (!button.dataset.armed) {
+        button.dataset.armed = "1";
+        button.textContent = user.activo ? "Confirmar desactivación" : "Confirmar activación";
+        return;
+      }
+      if (user.id === sessionId) {
+        toast("No puedes desactivarte a ti mismo");
+        return;
+      }
+      if (user.activo && user.rol === "admin" && admins <= 1) {
+        toast("No puedes desactivar al ?ltimo administrador activo");
+        return;
+      }
+      user.activo = !user.activo;
+      await putUsers();
+      renderUsuarios();
+      return;
+    }
+    if (button.dataset.reset) {
+      const cell = button.closest("td");
+      cell.innerHTML = '<input type="password" data-newpin="' + esc(user.id) + '" minlength="4" maxlength="12" placeholder="PIN nuevo"><button class="btn" data-reset-save="' + esc(user.id) + '">Guardar PIN</button>';
+      return;
+    }
+    if (button.dataset.resetSave) {
+      const input = el.querySelector('[data-newpin="' + user.id + '"]');
+      const pin = input?.value || "";
+      if (pin.length < 4 || pin.length > 12) {
+        toast("El PIN debe tener 4 a 12 caracteres");
+        return;
+      }
+      const salt = makeSalt();
+      user.salt = salt;
+      user.pinHash = await hashPin(salt, pin);
+      await putUsers();
+      renderUsuarios();
+      toast("PIN restablecido");
+    }
+  };
+}
 let summaryQ="", summarySort="nombre", summaryDir=1, summaryAlertsExpanded=false;
 // Con variantes, el producto pide reposición si alguna talla o color llegó a su mínimo (igual que en Inventario).
 function summaryState(p){const n=totalStock(p),vs=p.variantes||[];if(n<=0)return "Agotado";return (vs.length?vs.some(v=>n2(v.stock)<=n2(v.minimo??p.minimo)):n<=n2(p.minimo))?"Reponer":"OK";}
@@ -970,7 +1207,7 @@ function summarySvg(title,subtitle,data,options={}){
   const rows=data.map((d,i)=>{const label=options.ranked?`<span class="rank">${i+1}.</span>${esc(d.label)}`:esc(d.label),pct=options.percent&&options.total?Math.round(d.value/options.total*100):null,detail=pct===null?`${qty(d.value)} und`:`${qty(d.value)} · ${pct} %`,tip=`${d.label}: ${qty(d.value)} und${pct===null?"":` (${pct} %)`}`;return `<div class="bar-row"><span class="bar-label" title="${esc(d.label)}">${label}</span><span class="bar-track"><span class="bar" style="width:calc((100% - 7.5em) * ${(Math.max(0,d.value)/max).toFixed(4)})" title="${esc(tip)}"></span><span class="bar-val num">${detail}</span></span></div>`;}).join("");
   return `<section class="dash-card"><div class="dash-heading"><h2>${esc(title)}</h2><span class="dash-subtitle">${esc(subtitle)}</span></div>${rows?`<div class="bars">${rows}</div>`:`<p class="muted">Sin datos para mostrar.</p>`}</section>`;
 }
-function renderResumen(){const el=$("#v-resumen"),ps=S.products,units=ps.reduce((a,p)=>a+Math.max(0,totalStock(p)),0),value=ps.reduce((a,p)=>a+(p.variantes&&p.variantes.length?p.variantes.reduce((b,v)=>b+Math.max(0,n2(v.stock))*n2(v.precio??p.precio),0):Math.max(0,n2(p.stock))*n2(p.precio)),0),variants=ps.reduce((a,p)=>a+(p.variantes||[]).length,0),cats=new Map();ps.forEach(p=>{const k=(p.categoria||"").trim()||"Sin categoría";cats.set(k,(cats.get(k)||0)+Math.max(0,totalStock(p)));});const catData=[...cats].map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value),top=[...ps].sort((a,b)=>totalStock(b)-totalStock(a)).slice(0,10).map(p=>({label:p.nombre,value:Math.max(0,totalStock(p))})),low=ps.filter(p=>summaryState(p)==="Reponer"),out=ps.filter(p=>summaryState(p)==="Agotado"),alerts=[];ps.forEach(p=>{const vs=p.variantes||[];if(vs.length)vs.forEach(v=>{const stock=Math.max(0,n2(v.stock)),minimum=n2(v.minimo??p.minimo),state=stock<=0?"Agotado":stock<=minimum?"Reponer":"OK";if(state!=="OK")alerts.push({p,v,stock,minimum,state,ratio:minimum?stock/minimum:0});});else if(summaryState(p)!=="OK")alerts.push({p,v:null,stock:Math.max(0,n2(p.stock)),minimum:n2(p.minimo),state:summaryState(p),ratio:n2(p.minimo)?n2(p.stock)/n2(p.minimo):0});});alerts.sort((a,b)=>(a.state==="Agotado"?0:1)-(b.state==="Agotado"?0:1)||a.ratio-b.ratio);const shown=(summaryAlertsExpanded?alerts:alerts.slice(0,8)).map(a=>`<div class="alert-row"><span class="chip ${a.state==="Agotado"?"out":"low"}">${a.state}</span><span class="alert-name">${esc(a.p.nombre)}${a.v?` – ${esc([a.v.talla,a.v.color].filter(Boolean).join(" / "))}`:""}</span><span class="alert-stock num">stock ${qty(a.stock)} / mín. ${qty(a.minimum)}</span></div>`).join("");const q=norm(summaryQ),rows=ps.filter(p=>!q||norm([p.nombre,p.categoria,p.codigo,...(p.variantes||[]).flatMap(v=>[v.talla,v.color,v.codigo])].join(" ")).includes(q));rows.sort((a,b)=>{let x,y;switch(summarySort){case"categoria":x=a.categoria||"";y=b.categoria||"";break;case"codigo":x=a.codigo||"";y=b.codigo||"";break;case"precio":x=n2(a.precio);y=n2(b.precio);break;case"stock":x=totalStock(a);y=totalStock(b);break;case"estado":x=summaryState(a);y=summaryState(b);break;default:x=a.nombre||"";y=b.nombre||"";}return(typeof x==="number"?x-y:String(x).localeCompare(String(y),"es"))*summaryDir;});const focus=document.activeElement&&document.activeElement.id,maxStock=Math.max(1,...ps.map(p=>totalStock(p)));el.innerHTML=`<div class="toolbar"><h1 style="margin-right:auto">Resumen</h1></div><div class="summary-stats"><div class="summary-stat"><span class="summary-stat-label">Productos</span><b class="summary-stat-value">${ps.length}</b><span class="summary-stat-context">${variants} variantes</span></div><div class="summary-stat"><span class="summary-stat-label">Unidades en stock</span><b class="summary-stat-value">${qty(units)}</b><span class="summary-stat-context">en ${new Set(ps.map(p=>p.categoria||"Sin categoría")).size} categorías</span></div><div class="summary-stat"><span class="summary-stat-label">Valor del inventario</span><b class="summary-stat-value">${money(value)}</b><span class="summary-stat-context">a precio de venta</span></div><div class="summary-stat ${low.length+out.length?"warn":""}"><span class="summary-stat-label">Por reponer</span><b class="summary-stat-value">${low.length+out.length}</b><span class="summary-stat-context" style="${out.length?"color:var(--bad)":""}">${out.length} agotados</span></div></div><section class="dash-card dash-wide"><div class="dash-heading"><h2>Alertas de stock</h2></div>${alerts.length?`<div class="summary-alerts">${shown}</div>${alerts.length>8?`<button class="btn ghost alert-more" id="summaryAlertsToggle">${summaryAlertsExpanded?"Ver menos":`Ver todas (${alerts.length})`}</button>`:""}`:`<p class="muted">Todo en orden: ningún producto por reponer.</p>`}</section><div class="dash-grid">${summarySvg("Stock por categoría","unidades",catData,{percent:true,total:units})}${summarySvg("Productos con más stock","top 10, unidades",top,{ranked:true})}</div>${renderHeatmap(ps)}<div class="toolbar"><h2 style="margin-right:auto">Todos los productos</h2><input class="grow" type="search" id="summarySearch" placeholder="Buscar por nombre, categoría, código o variante" value="${esc(summaryQ)}"></div><div class="summary-table-wrap"><table class="summary-table"><thead><tr>${[["nombre","Nombre"],["categoria","Categoría"],["codigo","Código"],["precio","Precio"],["stock","Stock total"],["estado","Estado"]].map(([k,t])=>`<th><button data-sort="${k}">${t}${summarySort===k?(summaryDir===1?" ↑":" ↓"):""}</button></th>`).join("")}</tr></thead><tbody>${rows.map(p=>{const st=summaryState(p),vs=p.variantes||[],stock=Math.max(0,totalStock(p));return `<tr><td>${vs.length?`<details><summary>${esc(p.nombre)}</summary><div class="variant-detail">${vs.map(v=>`${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")}: <b>${qty(v.stock)}</b>`).join(" · ")}</div></details>`:esc(p.nombre)}</td><td>${esc(p.categoria||"—")}</td><td>${esc(p.codigo||"—")}</td><td class="num">${money(p.precio)}</td><td class="num"><span class="table-stock"><span>${qty(stock)} ${esc(p.unidad||"und")}</span><span class="table-stock-bar" style="width:${(stock/maxStock*60).toFixed(1)}px"></span></span></td><td><span class="chip ${st==="Agotado"?"out":st==="Reponer"?"low":""}">${st}</span></td></tr>`}).join("")||`<tr><td colspan="6" class="muted">${ps.length?"Ningún producto coincide.":"Aún no hay productos."}</td></tr>`}</tbody></table></div>`;if(focus==="summarySearch"){const i=$("#summarySearch");i.focus();i.setSelectionRange(i.value.length,i.value.length);}}
+function renderResumen(){if(!exigir("estadisticas.ver","ver estadísticas"))return;const el=$("#v-resumen"),ps=S.products,units=ps.reduce((a,p)=>a+Math.max(0,totalStock(p)),0),value=ps.reduce((a,p)=>a+(p.variantes&&p.variantes.length?p.variantes.reduce((b,v)=>b+Math.max(0,n2(v.stock))*n2(v.precio??p.precio),0):Math.max(0,n2(p.stock))*n2(p.precio)),0),variants=ps.reduce((a,p)=>a+(p.variantes||[]).length,0),cats=new Map();ps.forEach(p=>{const k=(p.categoria||"").trim()||"Sin categoría";cats.set(k,(cats.get(k)||0)+Math.max(0,totalStock(p)));});const catData=[...cats].map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value),top=[...ps].sort((a,b)=>totalStock(b)-totalStock(a)).slice(0,10).map(p=>({label:p.nombre,value:Math.max(0,totalStock(p))})),low=ps.filter(p=>summaryState(p)==="Reponer"),out=ps.filter(p=>summaryState(p)==="Agotado"),alerts=[];ps.forEach(p=>{const vs=p.variantes||[];if(vs.length)vs.forEach(v=>{const stock=Math.max(0,n2(v.stock)),minimum=n2(v.minimo??p.minimo),state=stock<=0?"Agotado":stock<=minimum?"Reponer":"OK";if(state!=="OK")alerts.push({p,v,stock,minimum,state,ratio:minimum?stock/minimum:0});});else if(summaryState(p)!=="OK")alerts.push({p,v:null,stock:Math.max(0,n2(p.stock)),minimum:n2(p.minimo),state:summaryState(p),ratio:n2(p.minimo)?n2(p.stock)/n2(p.minimo):0});});alerts.sort((a,b)=>(a.state==="Agotado"?0:1)-(b.state==="Agotado"?0:1)||a.ratio-b.ratio);const shown=(summaryAlertsExpanded?alerts:alerts.slice(0,8)).map(a=>`<div class="alert-row"><span class="chip ${a.state==="Agotado"?"out":"low"}">${a.state}</span><span class="alert-name">${esc(a.p.nombre)}${a.v?` – ${esc([a.v.talla,a.v.color].filter(Boolean).join(" / "))}`:""}</span><span class="alert-stock num">stock ${qty(a.stock)} / mín. ${qty(a.minimum)}</span></div>`).join("");const q=norm(summaryQ),rows=ps.filter(p=>!q||norm([p.nombre,p.categoria,p.codigo,...(p.variantes||[]).flatMap(v=>[v.talla,v.color,v.codigo])].join(" ")).includes(q));rows.sort((a,b)=>{let x,y;switch(summarySort){case"categoria":x=a.categoria||"";y=b.categoria||"";break;case"codigo":x=a.codigo||"";y=b.codigo||"";break;case"precio":x=n2(a.precio);y=n2(b.precio);break;case"stock":x=totalStock(a);y=totalStock(b);break;case"estado":x=summaryState(a);y=summaryState(b);break;default:x=a.nombre||"";y=b.nombre||"";}return(typeof x==="number"?x-y:String(x).localeCompare(String(y),"es"))*summaryDir;});const focus=document.activeElement&&document.activeElement.id,maxStock=Math.max(1,...ps.map(p=>totalStock(p)));el.innerHTML=`<div class="toolbar"><h1 style="margin-right:auto">Resumen</h1></div><div class="summary-stats"><div class="summary-stat"><span class="summary-stat-label">Productos</span><b class="summary-stat-value">${ps.length}</b><span class="summary-stat-context">${variants} variantes</span></div><div class="summary-stat"><span class="summary-stat-label">Unidades en stock</span><b class="summary-stat-value">${qty(units)}</b><span class="summary-stat-context">en ${new Set(ps.map(p=>p.categoria||"Sin categoría")).size} categorías</span></div><div class="summary-stat"><span class="summary-stat-label">Valor del inventario</span><b class="summary-stat-value">${money(value)}</b><span class="summary-stat-context">a precio de venta</span></div><div class="summary-stat ${low.length+out.length?"warn":""}"><span class="summary-stat-label">Por reponer</span><b class="summary-stat-value">${low.length+out.length}</b><span class="summary-stat-context" style="${out.length?"color:var(--bad)":""}">${out.length} agotados</span></div></div><section class="dash-card dash-wide"><div class="dash-heading"><h2>Alertas de stock</h2></div>${alerts.length?`<div class="summary-alerts">${shown}</div>${alerts.length>8?`<button class="btn ghost alert-more" id="summaryAlertsToggle">${summaryAlertsExpanded?"Ver menos":`Ver todas (${alerts.length})`}</button>`:""}`:`<p class="muted">Todo en orden: ningún producto por reponer.</p>`}</section><div class="dash-grid">${summarySvg("Stock por categoría","unidades",catData,{percent:true,total:units})}${summarySvg("Productos con más stock","top 10, unidades",top,{ranked:true})}</div>${renderHeatmap(ps)}<div class="toolbar"><h2 style="margin-right:auto">Todos los productos</h2><input class="grow" type="search" id="summarySearch" placeholder="Buscar por nombre, categoría, código o variante" value="${esc(summaryQ)}"></div><div class="summary-table-wrap"><table class="summary-table"><thead><tr>${[["nombre","Nombre"],["categoria","Categoría"],["codigo","Código"],["precio","Precio"],["stock","Stock total"],["estado","Estado"]].map(([k,t])=>`<th><button data-sort="${k}">${t}${summarySort===k?(summaryDir===1?" ↑":" ↓"):""}</button></th>`).join("")}</tr></thead><tbody>${rows.map(p=>{const st=summaryState(p),vs=p.variantes||[],stock=Math.max(0,totalStock(p));return `<tr><td>${vs.length?`<details><summary>${esc(p.nombre)}</summary><div class="variant-detail">${vs.map(v=>`${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")}: <b>${qty(v.stock)}</b>`).join(" · ")}</div></details>`:esc(p.nombre)}</td><td>${esc(p.categoria||"—")}</td><td>${esc(p.codigo||"—")}</td><td class="num">${money(p.precio)}</td><td class="num"><span class="table-stock"><span>${qty(stock)} ${esc(p.unidad||"und")}</span><span class="table-stock-bar" style="width:${(stock/maxStock*60).toFixed(1)}px"></span></span></td><td><span class="chip ${st==="Agotado"?"out":st==="Reponer"?"low":""}">${st}</span></td></tr>`}).join("")||`<tr><td colspan="6" class="muted">${ps.length?"Ningún producto coincide.":"Aún no hay productos."}</td></tr>`}</tbody></table></div>`;if(focus==="summarySearch"){const i=$("#summarySearch");i.focus();i.setSelectionRange(i.value.length,i.value.length);}}
 $("#v-resumen").addEventListener("input",e=>{if(e.target.id==="summarySearch"){summaryQ=e.target.value;renderResumen();}});
 $("#v-resumen").addEventListener("click",e=>{if(e.target.closest("#summaryAlertsToggle")){summaryAlertsExpanded=!summaryAlertsExpanded;return renderResumen();}const b=e.target.closest("[data-sort]");if(!b)return;if(summarySort===b.dataset.sort)summaryDir*=-1;else{summarySort=b.dataset.sort;summaryDir=1;}renderResumen();});
 // ---------- ventas ----------
@@ -1068,6 +1305,7 @@ function renderSalesTable(notes) {
   return `<div class="toolbar"><h2 style="margin-right:auto">Todas las ventas</h2><input class="grow" type="search" id="salesSearch" placeholder="Buscar cliente, folio o producto" value="${esc(salesQ)}"><button class="btn" id="salesExport">Exportar CSV</button></div><div class="summary-table-wrap"><table class="summary-table sales-table"><thead><tr>${columns.map(([key,title])=>`<th><button data-sales-sort="${key}">${title}${salesSort===key?(salesDir===1?" ↑":" ↓"):""}</button></th>`).join("")}</tr></thead><tbody>${body||`<tr><td colspan="7" class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></td></tr>`}</tbody><tfoot><tr><td colspan="4">Totales del período</td><td class="num">${qty(units)}</td><td class="num">${money(total)}</td><td></td></tr></tfoot></table></div>${shown.length<rows.length?`<div class="toolbar" style="justify-content:center;margin-top:12px"><button class="btn" id="salesMore">Mostrar más</button></div>`:""}`;
 }
 function renderVentas() {
+  if (!exigir("estadisticas.ver", "ver estadísticas")) return;
   const hadSearchFocus=document.activeElement&&document.activeElement.id==="salesSearch";
   const el=$("#v-ventas"),notes=salesInPeriod();
   el.innerHTML=`<div class="toolbar"><h1 style="margin-right:auto">Ventas</h1><div class="seg">${salesPeriods.map(([key,label])=>`<button data-sales-period="${key}" aria-pressed="${salesPeriod===key}">${label}</button>`).join("")}</div></div>${salesKpis(notes)}${renderSalesChart(notes)}${renderTopProducts(notes)}${renderSalesTable(notes)}`;
@@ -1075,12 +1313,15 @@ function renderVentas() {
 }
 $("#v-ventas").addEventListener("input",e=>{if(e.target.id==="salesSearch"){salesQ=e.target.value;salesLimit=25;renderVentas();}});
 $("#v-ventas").addEventListener("click",e=>{const t=e.target.closest("button, tr[data-sales-note]");if(!t)return;if(t.dataset.view)return go(t.dataset.view);if(t.dataset.salesPeriod){salesPeriod=t.dataset.salesPeriod;store.set("mostrador.salesPeriod",salesPeriod);salesLimit=25;return renderVentas();}if(t.dataset.salesMode){salesTopMode=t.dataset.salesMode;return renderVentas();}if(t.dataset.salesSort){if(salesSort===t.dataset.salesSort)salesDir*=-1;else{salesSort=t.dataset.salesSort;salesDir=t.dataset.salesSort==="fecha"?-1:1;}return renderVentas();}if(t.id==="salesMore"){salesLimit+=25;return renderVentas();}if(t.id==="salesExport")return exportSalesCsv(salesInPeriod());if(t.dataset.salesNote){S.selNote=t.dataset.salesNote;return go("notas");}});
-async function exportSalesCsv(notes){const rows=[["Fecha","Folio","Cliente","Producto","Talla","Color","Cantidad","Precio","Importe","Estado"]];notes.forEach(n=>n.items.forEach(i=>{const productName=i.variantId?String(i.nombre||"").replace(/\s+–\s+[^–]*$/,""):i.nombre||"";rows.push([n.fecha||"",folioTxt(n.folio),n.cliente||"",productName,i.talla||"",i.color||"",n2(i.cant),n2(i.precio),n2(i.cant)*n2(i.precio),n.estado==="anulada"?"Anulada":"Emitida"]);}));const csv="\uFEFF"+rows.map(r=>r.map(v=>/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v).join(",")).join("\n");await saveFile(`ventas-${new Date().toISOString().slice(0,10)}.csv`,csv);}
+async function exportSalesCsv(notes){if(!exigir("datos.exportar","exportar ventas"))return;const rows=[["Fecha","Folio","Cliente","Producto","Talla","Color","Cantidad","Precio","Importe","Estado"]];notes.forEach(n=>n.items.forEach(i=>{const productName=i.variantId?String(i.nombre||"").replace(/\s+–\s+[^–]*$/,""):i.nombre||"";rows.push([n.fecha||"",folioTxt(n.folio),n.cliente||"",productName,i.talla||"",i.color||"",n2(i.cant),n2(i.precio),n2(i.cant)*n2(i.precio),n.estado==="anulada"?"Anulada":"Emitida"]);}));const csv="\uFEFF"+rows.map(r=>r.map(v=>/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v).join(",")).join("\n");await saveFile(`ventas-${new Date().toISOString().slice(0,10)}.csv`,csv);}
 
 function go(view) {
+  const needed = view === "ventas" || view === "resumen" ? "estadisticas.ver" : view === "usuarios" ? "usuarios.gestionar" : null;
+  if (needed && !exigir(needed, "abrir " + view)) view = "inventario";
+  if (!puede("inventario.ver") && view === "inventario") return;
   S.view = view;
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === view));
-  ["inventario", "venta", "notas", "ventas", "resumen"].forEach(v => $("#v-" + v).hidden = v !== view);
+  ["inventario", "venta", "notas", "ventas", "resumen", "usuarios"].forEach(v => $("#v-" + v).hidden = v !== view);
   try { history.replaceState(null, "", "#" + view); } catch {}
   renderAll();
   window.scrollTo({ top: 0 });
@@ -1091,14 +1332,15 @@ function renderAll() {
   else if (S.view === "venta") renderVenta();
   else if (S.view === "resumen") renderResumen();
   else if (S.view === "ventas") renderVentas();
+  else if (S.view === "usuarios") renderUsuarios();
   else renderNotas();
 }
 
 // ---------- arranque ----------
 S.group = store.get("mostrador.group") || "categoria";
 const h = (location.hash || "").slice(1);
-if (["inventario", "venta", "notas", "ventas", "resumen"].includes(h)) S.view = h;
-go(S.view);
+if (["inventario", "venta", "notas", "ventas", "resumen", "usuarios"].includes(h)) S.view = h;
+renderLogin();
 
 (async () => {
   const c = window.claude;
@@ -1110,17 +1352,20 @@ go(S.view);
     if (saved) {
       mem.products = new Map((saved.products || []).filter(p => p && p.id).map(p => [p.id, p]));
       mem.notes = new Map((saved.notes || []).filter(n => n && n.id).map(n => [n.id, n]));
+      mem.users = new Map((saved.users || []).filter(u => u && u.id).map(u => [u.id, u]));
       if (saved.settings) S.settings = { ...S.settings, ...saved.settings };
       syncMem();
     }
     S.loaded = true;
+    try { sessionId = sessionStorage.getItem("mostrador.session"); } catch {}
+    if (usuarioActual()) renderApp(); else renderLogin();
     const b = $("#banner");
     b.textContent = "Tus datos se guardan en este navegador. Exporta copias periódicas para respaldarlos.";
     b.hidden = false;
     return renderAll();
   }
-  let gotP = false, gotN = false;
-  const ready = () => { if (gotP && gotN) S.loaded = true; };
+  let gotP = false, gotN = false, gotU = false;
+  const ready = () => { if (gotP && gotN && gotU) { S.loaded = true; try { sessionId = sessionStorage.getItem("mostrador.session"); } catch {} if (usuarioActual()) renderApp(); else renderLogin(); } };
   db.collection("products").onSnapshot(snap => {
     S.products = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .map(p => {
@@ -1141,6 +1386,7 @@ go(S.view);
     gotN = true; ready(); renderAll();
   }, () => {});
   db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { ...S.settings, ...s.data() }; renderAll(); } }, () => {});
+  db.doc("settings/users").onSnapshot(s => { S.users = s.exists ? (s.data().list || []) : []; gotU = true; ready(); }, () => { gotU = true; ready(); });
 })();
 })();
 </script>
