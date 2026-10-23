@@ -1,4 +1,13 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mostrador</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0d6e5f">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mostrador">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -104,7 +113,9 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
   header.top{position:relative;inset:auto;width:100%;border-right:0;border-bottom:1px solid var(--line)}
   header.top .wrap{max-width:1100px;flex-direction:row;align-items:center;gap:8px;padding:10px max(12px,env(safe-area-inset-left,0px))}
   .brand{font-size:20px}
-  nav.tabs{position:fixed;inset:auto 0 0;z-index:15;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;background:var(--surface);border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-left,0px)) calc(4px + env(safe-area-inset-bottom,0px))}
+  header.top .wrap{flex-wrap:wrap}
+  header.top .install-app{order:3;flex-basis:100%;text-align:center}
+  nav.tabs{position:fixed;inset:auto 0 0;z-index:15;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;background:var(--surface);border-top:1px solid var(--line);padding:4px max(6px,env(safe-area-inset-left,0px)) calc(4px + env(safe-area-inset-bottom,0px))}
   nav.tabs button{text-align:center;border:0;border-top:3px solid transparent;border-radius:6px;padding:5px 1px;font-size:11px;min-height:42px;white-space:nowrap}
   nav.tabs button[aria-selected="true"]{border-top-color:var(--accent)}
   main.wrap{width:100%;height:auto;min-height:calc(100dvh - 120px);margin:0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(100px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));overflow:visible}
@@ -246,6 +257,7 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .settings label.f{flex:1 1 180px}
 .auth-screen{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:20px}
 .auth-card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:14px}
+.install-app{font:600 13px var(--f-body);text-align:left;background:transparent;color:var(--accent);border:1px solid var(--line);padding:8px 10px;border-radius:6px;cursor:pointer}
 .user-menu{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);display:grid;gap:6px;font-size:13px}
 .user-table{width:100%;border-collapse:collapse}.user-table th,.user-table td{padding:8px;border-bottom:1px solid var(--line);text-align:left}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translate(-50%,8px);opacity:0}}}
@@ -264,6 +276,7 @@ body{height:100dvh;overflow:hidden}
       <button role="tab" data-view="resumen" aria-selected="false">Resumen</button>
       <button role="tab" data-view="usuarios" aria-selected="false" hidden>Usuarios</button>
     </nav>
+    <button type="button" id="installApp" class="install-app" hidden>Instalar app</button>
     <div id="userMenu" class="user-menu" hidden></div>
   </div>
 </header>
@@ -1488,5 +1501,39 @@ renderLogin();
   db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { ...S.settings, ...s.data() }; renderAll(); } }, () => {});
   db.doc("settings/users").onSnapshot(s => { S.users = s.exists ? (s.data().list || []) : []; gotU = true; ready(); }, () => { gotU = true; ready(); });
 })();
+// ---------- instalación PWA ----------
+let installPrompt = null;
+const installButton = $("#installApp");
+const isInstalled = () => window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+if (installButton) {
+  const updateInstallButton = () => { installButton.hidden = isInstalled() || !installPrompt; };
+  updateInstallButton();
+  window.addEventListener("beforeinstallprompt", event => {
+    if (isInstalled()) return;
+    event.preventDefault();
+    installPrompt = event;
+    updateInstallButton();
+  });
+  window.addEventListener("appinstalled", () => { installPrompt = null; updateInstallButton(); });
+  installButton.addEventListener("click", async () => {
+    if (!installPrompt) return;
+    const prompt = installPrompt;
+    installPrompt = null;
+    updateInstallButton();
+    try { await prompt.prompt(); } catch {}
+  });
+}
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+// en iPhone no hay botón de instalar: se indica una sola vez cómo hacerlo
+if (isIOS && isSafari && !isInstalled() && /^https?:$/.test(location.protocol) && !window.claude && !store.get("mostrador.iosHint")) {
+  store.set("mostrador.iosHint", true);
+  setTimeout(() => toast("Para instalar: Compartir → Agregar a pantalla de inicio"), 1200);
+}
+try {
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) && !window.claude) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
+} catch {}
 })();
 </script>

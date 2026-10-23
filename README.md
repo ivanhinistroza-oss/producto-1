@@ -29,3 +29,11 @@ Chrome puede enviar la impresión sin mostrar el diálogo en ese modo. Configura
 - **Exportar copia** descarga un archivo JSON con productos, notas y ajustes.
 - **Importar copia** permite **Combinar** por identificador o **Reemplazar todo** tras confirmarlo dentro de la página.
 - Al limpiar los datos del navegador o cambiar de navegador/dispositivo, los datos locales no estarán disponibles allí; importa una copia para recuperarlos.
+
+## Instalar como app
+
+- **Android con Chrome:** abre Mostrador, toca el menú ⋮ y elige **Instalar app** o **Agregar a pantalla de inicio**.
+- **PC con Chrome o Edge:** abre Mostrador y pulsa **Instalar app** cuando aparezca en el menú lateral; también puedes usar el icono de instalación del navegador.
+- **iPhone con Safari:** toca **Compartir** y luego **Agregar a pantalla de inicio**.
+
+Cada equipo y navegador guarda sus propios datos. Las ventas e inventario todavía no se comparten entre dispositivos; usa **Exportar copia** e **Importar copia** para trasladar datos.
