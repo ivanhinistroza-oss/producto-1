@@ -4,10 +4,10 @@ Aplicación web sencilla de inventario y notas de venta. No necesita servidor ni
 
 ## Publicar en GitHub Pages
 
-1. Sube `index.html` y `mostrador.html` a la rama `main` del repositorio.
+1. Sube `index.html` y `mostrador.html` a la rama `master` del repositorio.
 2. Abre **Settings > Pages**.
 3. En **Build and deployment**, selecciona **Deploy from a branch**.
-4. Selecciona la rama **main** y la carpeta **/ (root)**; guarda.
+4. Selecciona la rama **master** y la carpeta **/ (root)**; guarda.
 5. Abre la URL que GitHub Pages muestra en esa sección.
 
 GitHub Pages en repositorios privados requiere un plan pagado compatible. En GitHub Free, el repositorio debe ser público para publicar con Pages. Consulta [los planes de GitHub](https://docs.github.com/en/get-started/learning-about-github/githubs-plans) y la [guía de publicación de Pages](https://docs.github.com/en/pages/quickstart).

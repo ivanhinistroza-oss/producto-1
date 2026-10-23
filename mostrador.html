@@ -558,6 +558,14 @@ async function patchProduct(id, patch) {
   if (db) await db.collection("products").doc(id).update(patch);
   else { const p = mem.products.get(id); if (p) Object.assign(p, patch); syncMem(); }
 }
+async function readProduct(id) {
+  if (db) {
+    const snap = await db.collection("products").doc(id).get();
+    return snap.exists ? { id, ...snap.data() } : null;
+  }
+  const p = mem.products.get(id);
+  return p ? { ...p, variantes: p.variantes?.map(v => ({ ...v })) } : null;
+}
 async function removeProduct(id) {
   if (!exigir("producto.eliminar", "eliminar productos")) return;
   if (db) await db.collection("products").doc(id).delete();
@@ -568,6 +576,10 @@ async function putNote(n) {
   const body = { ...n }; delete body.id;
   if (db) await db.collection("notes").doc(n.id).set(body);
   else { mem.notes.set(n.id, { ...n }); syncMem(); }
+}
+async function deleteNote(id) {
+  if (db) await db.collection("notes").doc(id).delete();
+  else { mem.notes.delete(id); syncMem(); }
 }
 async function putSettings(s) {
   if (!exigir("ajustes.editar", "editar ajustes")) return;
@@ -591,22 +603,60 @@ function failMsg(e) {
 
 // ---------- inventario ----------
 const pendingStock = new Map();
+const stockWrites = new Set();
 const totalStock = p => Array.isArray(p.variantes) && p.variantes.length ? p.variantes.reduce((a,v)=>a+n2(v.stock),0) : n2(p.stock);
+function scheduleStockDelta(id, variantId, delta) {
+  const key = id + ":" + (variantId || "");
+  const old = pendingStock.get(key);
+  if (old) clearTimeout(old.timer);
+  // si el guardado anterior ya está en curso, su delta no se vuelve a sumar
+  const entry = { delta: (old && !old.promise ? old.delta : 0) + delta, timer: null };
+  entry.timer = setTimeout(() => flushStockDelta(key).catch(e => toast(failMsg(e))), 450);
+  pendingStock.set(key, entry);
+}
+async function flushStockDelta(key) {
+  const entry = pendingStock.get(key); if (!entry) return;
+  if (entry.promise) return entry.promise;
+  clearTimeout(entry.timer);
+  entry.promise = (async () => {
+    const [id, variantId] = key.split(":");
+    // en modo local la pantalla y los datos son el mismo objeto: el valor ya está aplicado, solo falta guardarlo
+    if (!db) { syncMem(); return; }
+    const p = await readProduct(id); if (!p) return;
+    if (variantId) {
+      const v = (p.variantes || []).find(x => x.id === variantId); if (!v) return;
+      v.stock = Math.max(0, Math.round((n2(v.stock) + entry.delta) * 1000) / 1000);
+      p.stock = totalStock(p);
+      await patchProduct(id, { variantes: p.variantes, stock: p.stock, actualizado: new Date().toISOString() });
+    } else {
+      p.stock = Math.max(0, Math.round((n2(p.stock) + entry.delta) * 1000) / 1000);
+      await patchProduct(id, { stock: p.stock, actualizado: new Date().toISOString() });
+    }
+  })();
+  stockWrites.add(entry.promise);
+  entry.promise.then(() => stockWrites.delete(entry.promise), () => stockWrites.delete(entry.promise));
+  try { await entry.promise; }
+  finally { if (pendingStock.get(key) === entry) pendingStock.delete(key); }
+}
+async function flushPendingStock() {
+  while (pendingStock.size || stockWrites.size) {
+    const pending = [...pendingStock.keys()].map(key => flushStockDelta(key));
+    await Promise.all([...pending, ...stockWrites]);
+  }
+}
 function setStockLocal(id, value) {
   if (!exigir("stock.ajustar", "ajustar stock")) return;
   const p = S.products.find(x => x.id === id); if (!p) return;
+  const previous = n2(p.stock);
   p.stock = value;
-  clearTimeout(pendingStock.get(id));
-  pendingStock.set(id, setTimeout(() => {
-    pendingStock.delete(id);
-    patchProduct(id, { stock: value, actualizado: new Date().toISOString() }).catch(e => toast(failMsg(e)));
-  }, 450));
+  scheduleStockDelta(id, null, value - previous);
 }
 function setVariantStock(id, variantId, value) {
   if (!exigir("stock.ajustar", "ajustar stock")) return;
   const p=S.products.find(x=>x.id===id), v=p&&p.variantes&&p.variantes.find(x=>x.id===variantId); if(!v)return;
-  v.stock=value; p.stock=totalStock(p); const key=id+":"+variantId; clearTimeout(pendingStock.get(key));
-  pendingStock.set(key,setTimeout(()=>{pendingStock.delete(key);patchProduct(id,{variantes:p.variantes,stock:p.stock,actualizado:new Date().toISOString()}).catch(e=>toast(failMsg(e)));},450));
+  const previous = n2(v.stock);
+  v.stock=value; p.stock=totalStock(p);
+  scheduleStockDelta(id, variantId, value - previous);
 }
 
 function renderInventario() {
@@ -945,26 +995,70 @@ async function emitNote(btn) {
     items, total: Math.round(items.reduce((a, i) => a + i.cant * i.precio, 0) * 100) / 100, estado: "emitida",
   };
   try {
+    await flushPendingStock();
+    const freshNotes = await readNotes();
+    note.folio = nextFreeFolio(freshNotes);
     note.vendedorId = usuarioActual()?.id;
     note.vendedorNombre = usuarioActual()?.nombre;
-    await putNote(note);
     saleAdjusting = true;
-    await adjustStock(items, -1);
+    const changed = await adjustStock(items, -1);
+    try {
+      const latestNotes = await readNotes();
+      if (latestNotes.some(n => n2(n.folio) === n2(note.folio))) note.folio = nextFreeFolio(latestNotes);
+      await putNote(note);
+    }
+    catch (err) {
+      await restoreProducts(changed);
+      try { await deleteNote(note.id); } catch {}
+      throw err;
+    }
     saleAdjusting = false;
     draft = blankDraft(); saveDraft();
     S.selNote = note.id;
     toast("Nota " + folioTxt(note.folio) + " emitida");
     go("notas");
-  } catch (err) { saleAdjusting = false; toast(failMsg(err)); btn.disabled = false; }
+  } catch (err) { saleAdjusting = false; toast("No se pudo emitir la nota; se revirtieron los cambios. " + failMsg(err)); btn.disabled = false; }
+}
+async function readNotes() {
+  if (db) { const snap = await db.collection("notes").get(); return snap.docs.map(d => ({ id: d.id, ...d.data() })); }
+  return [...mem.notes.values()].map(n => ({ ...n }));
+}
+function nextFreeFolio(notes) {
+  const used = new Set(notes.map(n => n2(n.folio)));
+  let folio = notes.reduce((m, n) => Math.max(m, n2(n.folio)), 0) + 1;
+  while (used.has(folio)) folio++;
+  return folio;
+}
+async function restoreProducts(snapshots) {
+  for (const p of snapshots) {
+    const body = { ...p }; delete body.id;
+    if (db) await db.collection("products").doc(p.id).set(body);
+    else { mem.products.set(p.id, { ...p }); syncMem(); }
+  }
 }
 async function adjustStock(items, sign) {
   const byKey = {};
   items.forEach(i => { if (i.productId) {const key=i.productId+":"+(i.variantId||"");byKey[key]=(byKey[key]||0)+n2(i.cant);} });
-  for (const [key, c] of Object.entries(byKey)) {
-    const [id,vid]=key.split(":"),p=S.products.find(x=>x.id===id); if (!p) continue;
-    if(vid&&p.variantes){const v=p.variantes.find(x=>x.id===vid);if(!v)continue;v.stock=Math.round((n2(v.stock)+sign*c)*1000)/1000;p.stock=totalStock(p);await patchProduct(id,{variantes:p.variantes,stock:p.stock,actualizado:new Date().toISOString()});}
-    else {const v=Math.round((n2(p.stock)+sign*c)*1000)/1000;p.stock=v;await patchProduct(id,{stock:v,actualizado:new Date().toISOString()});}
+  const snapshots = [];
+  for (const key of Object.keys(byKey)) {
+    const [id, vid] = key.split(":"), p = await readProduct(id);
+    if (!p || (vid && !(p.variantes || []).some(v => v.id === vid))) throw new Error("Producto o variante no disponible");
   }
+  try {
+    for (const [key, c] of Object.entries(byKey)) {
+      const [id, vid] = key.split(":"), p = await readProduct(id);
+      snapshots.push(structuredClone(p));
+      if (vid) {
+        const v = p.variantes.find(x => x.id === vid);
+        v.stock = Math.round((n2(v.stock) + sign * c) * 1000) / 1000; p.stock = totalStock(p);
+        await patchProduct(id, { variantes: p.variantes, stock: p.stock, actualizado: new Date().toISOString() });
+      } else {
+        p.stock = Math.round((n2(p.stock) + sign * c) * 1000) / 1000;
+        await patchProduct(id, { stock: p.stock, actualizado: new Date().toISOString() });
+      }
+    }
+  } catch (err) { await restoreProducts(snapshots); throw err; }
+  return snapshots;
 }
 
 // ---------- ticket ----------
@@ -1136,10 +1230,16 @@ $("#v-notas").addEventListener("click", async e => {
     if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = "Confirmar anulación"; return; }
     t.disabled = true;
     try {
-      await putNote({ ...sel, items: sel.items.map(i => ({ ...i })), estado: "anulada", anulada: new Date().toISOString() });
-      await adjustStock(sel.items, +1);
+      await flushPendingStock();
+      const changed = await adjustStock(sel.items, +1);
+      try { await putNote({ ...sel, items: sel.items.map(i => ({ ...i })), estado: "anulada", anulada: new Date().toISOString() }); }
+      catch (err) {
+        await restoreProducts(changed);
+        try { await putNote(sel); } catch {}
+        throw err;
+      }
       toast("Nota anulada; el stock se devolvió al inventario");
-    } catch (err) { toast(failMsg(err)); t.disabled = false; }
+    } catch (err) { toast("No se pudo anular; se revirtieron los cambios. " + failMsg(err)); t.disabled = false; }
   }
 });
 
