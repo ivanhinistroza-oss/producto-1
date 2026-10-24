@@ -151,7 +151,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn.danger.armed{background:var(--bad);color:var(--surface)}
 .btn.ghost{border-color:transparent;background:transparent}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-input[type=text],input[type=number],input[type=search],input[type=datetime-local],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+input[type=text],input[type=number],input[type=search],input[type=datetime-local],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
 textarea{resize:vertical;min-height:60px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
 label.f > span{letter-spacing:.02em}
@@ -297,6 +297,26 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .amount-words{font-size:.9em;margin-top:4px}
 .disclaimer{font-size:.75em;margin-top:6px;opacity:.75}
 .settings label.f{flex:1 1 180px}
+/* Cotizaciones y reportes: hoja A4 (el estilo de la hoja está en A4_CSS) */
+.quotes{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start}
+.quote-editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:1180px){.quotes,.quote-editor{grid-template-columns:minmax(0,1fr)}}
+.nrow .amt{text-align:right}
+.nrow .amt small{display:block;margin-top:2px}
+.doc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.a4-stage{container-type:inline-size;min-width:0}
+.a4-page{max-width:210mm;margin:0 auto;padding:clamp(16px,6cqw,44px);border-radius:4px;box-shadow:0 1px 0 var(--line),0 8px 24px rgb(0 0 0 / .08)}
+.report-controls{margin-bottom:16px}
+.report-controls .actions{justify-content:flex-start}
+/* .a4-stage delante para ganarle a A4_CSS, que se carga después */
+@container (max-width:560px){
+  .a4-stage .a4{font-size:11px}
+  .a4-stage .a4-head{flex-direction:column}
+  .a4-stage .a4-doc{text-align:left}
+  .a4-stage .a4-meta{grid-template-columns:minmax(0,1fr)}
+  .a4-stage .a4-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .a4-stage .a4 th,.a4-stage .a4 td{padding:6px 4px}
+}
 .auth-screen{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:20px}
 .auth-card{width:min(420px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:14px}
 .install-app{font:600 13px var(--f-body);text-align:left;background:transparent;color:var(--accent);border:1px solid var(--line);padding:8px 10px;border-radius:6px;cursor:pointer}
@@ -331,7 +351,9 @@ body{height:100dvh;overflow:hidden}
         <button role="tab" data-view="inventario" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18v12H3zM3 8l2-4h14l2 4M9 12h6"/></svg><span>Inventario</span></button>
         <button role="tab" data-view="venta" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.5h11.6L21 8H6M9 19a1 1 0 1 0 0 .01M17 19a1 1 0 1 0 0 .01"/></svg><span>Nueva venta</span></button>
         <button role="tab" data-view="notas" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21zM9 8h6M9 12h6M9 16h4"/></svg><span>Notas</span></button>
+        <button role="tab" data-view="cotizaciones" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6v18h12V7zM14 3v4h4M9 12h6M9 16h6M9 8h2"/></svg><span>Cotizaciones</span></button>
         <button role="tab" data-view="ventas" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/></svg><span>Ventas</span></button>
+        <button role="tab" data-view="reportes" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15H6zM15 2v5h5M13 11v7M10 15l3 3 3-3"/></svg><span>Reportes</span></button>
         <button role="tab" data-view="resumen" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg><span>Resumen</span></button>
         <button role="tab" data-view="usuarios" aria-selected="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Usuarios</span></button>
         <button role="tab" data-view="config" aria-selected="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 2.9-.2-.1a1.8 1.8 0 0 0-1.9.1 1.8 1.8 0 0 0-.9 1.5v.2H9v-.2a1.8 1.8 0 0 0-1-1.5 1.8 1.8 0 0 0-1.9-.1l-.2.1-1.7-2.9.1-.1a1.7 1.7 0 0 0 .3-1.9 1.8 1.8 0 0 0-1.5-1H3v-3.4h.2a1.8 1.8 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1L6 4.7l.2.1a1.8 1.8 0 0 0 1.9-.1 1.8 1.8 0 0 0 .9-1.5V3h6.1v.2a1.8 1.8 0 0 0 1 1.5 1.8 1.8 0 0 0 1.9.1l.2-.1 1.7 2.9-.1.1a1.7 1.7 0 0 0-.3 1.9 1.8 1.8 0 0 0 1.5 1h.2V14h-.2a1.8 1.8 0 0 0-1.6 1z"/></svg><span>Configuración</span></button>
@@ -348,7 +370,9 @@ body{height:100dvh;overflow:hidden}
   <section id="v-inventario"></section>
   <section id="v-venta" hidden></section>
   <section id="v-notas" hidden></section>
+  <section id="v-cotizaciones" hidden></section>
   <section id="v-ventas" hidden></section>
+  <section id="v-reportes" hidden></section>
   <section id="v-resumen" hidden></section>
   <section id="v-usuarios" hidden></section>
   <section id="v-config" hidden></section>
@@ -402,7 +426,7 @@ body{height:100dvh;overflow:hidden}
 (() => {
 // ---------- estado ----------
 const S = {
-  products: [], notes: [], users: [],
+  products: [], notes: [], users: [], quotes: [],
   settings: { negocio: "Mi negocio", moneda: "S/" },
   view: "inventario", group: "categoria", q: "", lowOnly: false,
   selNote: null, online: false, loaded: false,
@@ -417,6 +441,8 @@ const money = v => S.settings.moneda + " " + n2(v).toLocaleString("es", { minimu
 const qty = v => n2(v).toLocaleString("es", { maximumFractionDigits: 3 });
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const folioTxt = f => "NV-" + String(f).padStart(5, "0");
+// una línea de descuento (precio negativo) no es una unidad vendida
+const itemUnits = i => n2(i.precio) < 0 ? 0 : n2(i.cant);
 const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " + d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }); };
 const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
@@ -477,8 +503,8 @@ function clusters(list) {
 }
 
 // ---------- datos ----------
-const mem = { products: new Map(), notes: new Map(), users: new Map(), settings: null };
-const PERMISOS = { admin: ["*"], vendedor: ["inventario.ver", "venta.crear", "nota.ver", "nota.imprimir"] };
+const mem = { products: new Map(), notes: new Map(), users: new Map(), quotes: new Map(), settings: null };
+const PERMISOS = { admin: ["*"], vendedor: ["inventario.ver", "venta.crear", "nota.ver", "nota.imprimir", "cotizacion.ver", "cotizacion.crear"] };
 let sessionId = null;
 let saleAdjusting = false;
 let failedLogins = 0;
@@ -611,7 +637,7 @@ function renderLogin(error = "") {
 }
 function aplicarPermisosUI() {
   const admin = puede("usuarios.gestionar");
-  document.querySelectorAll('[data-view="ventas"],[data-view="resumen"],[data-view="usuarios"]')
+  document.querySelectorAll('[data-view="ventas"],[data-view="reportes"],[data-view="resumen"],[data-view="usuarios"]')
     .forEach(button => button.hidden = !admin);
   document.querySelector('[data-view="config"]').hidden = !puede("ajustes.editar");
   $("#userMenu").hidden = false;
@@ -664,15 +690,29 @@ async function deleteNote(id) {
   if (db) await db.collection("notes").doc(id).delete();
   else { mem.notes.delete(id); syncMem(); }
 }
+async function putQuote(q) {
+  const body = { ...q }; delete body.id;
+  if (db) await db.collection("quotes").doc(q.id).set(body);
+  else { mem.quotes.set(q.id, { ...q }); syncMem(); }
+}
+async function patchQuote(id, patch) {
+  if (db) await db.collection("quotes").doc(id).update(patch);
+  else { const q = mem.quotes.get(id); if (q) Object.assign(q, patch); syncMem(); }
+}
+async function deleteQuote(id) {
+  if (!exigir("cotizacion.eliminar", "eliminar cotizaciones")) return;
+  if (db) await db.collection("quotes").doc(id).delete();
+  else { mem.quotes.delete(id); syncMem(); }
+}
 async function putSettings(s) {
   if (!exigir("ajustes.editar", "editar ajustes")) return;
   if (db) await db.doc("settings/app").set(s);
   else { mem.settings = s; S.settings = { negocio: "Mi negocio", moneda: "S/", ...s }; syncMem(); }
 }
 function syncMem() {
-  S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()]; S.users = [...mem.users.values()];
+  S.products = [...mem.products.values()]; S.notes = [...mem.notes.values()]; S.users = [...mem.users.values()]; S.quotes = [...mem.quotes.values()];
   if (!db) {
-    try { localStorage.setItem("mostrador.data", JSON.stringify({ products: S.products, notes: S.notes, users: S.users, settings: S.settings })); }
+    try { localStorage.setItem("mostrador.data", JSON.stringify({ products: S.products, notes: S.notes, users: S.users, quotes: S.quotes, settings: S.settings })); }
     catch { const b = $("#banner"); b.textContent = "No se pudo guardar en este navegador. Exporta una copia y libera espacio."; b.hidden = false; }
   }
   simCache.clear(); renderAll();
@@ -1014,7 +1054,7 @@ async function saveLogo(file) {
 
 async function exportBackup() {
   if (!exigir("datos.exportar", "exportar copias")) return;
-  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, users: fbMode ? undefined : S.users, settings: S.settings }, null, 2);
+  const data = JSON.stringify({ version: 1, products: S.products, notes: S.notes, quotes: S.quotes, users: fbMode ? undefined : S.users, settings: S.settings }, null, 2);
   const name = "mostrador-copia-" + new Date().toISOString().slice(0, 10) + ".json";
   if (downloads) return saveFile(name, data);
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click();
@@ -1037,10 +1077,12 @@ async function importBackup(file) {
           if (db) {
             await Promise.all(S.products.map(p => removeProduct(p.id)));
             await Promise.all(S.notes.map(n => db.collection("notes").doc(n.id).delete()));
-          } else { mem.products.clear(); mem.notes.clear(); }
+            await Promise.all(S.quotes.map(q => db.collection("quotes").doc(q.id).delete()));
+          } else { mem.products.clear(); mem.notes.clear(); mem.quotes.clear(); }
         }
         for (const p of incoming.products) if (p && p.id) await putProduct(p);
         for (const n of incoming.notes) if (n && n.id) await putNote(n);
+        for (const q of Array.isArray(incoming.quotes) ? incoming.quotes : []) if (q && q.id) await putQuote(q);
         await putSettings(incoming.settings);
         if (Array.isArray(incoming.users) && !fbMode) {
           if (mode === "replace") S.users = incoming.users.filter(u => u && u.id);
@@ -1064,7 +1106,17 @@ async function exportCsv() {
   await saveFile("inventario-" + new Date().toISOString().slice(0, 10) + ".csv", csv);
 }
 async function saveFile(filename, data) {
-  if (!downloads) { toast("Descargar no está disponible en esta vista."); return; }
+  if (!downloads && window.claude) { toast("Descargar no está disponible en esta vista."); return; }
+  if (!downloads) {
+    // fuera de claude.ai (GitHub Pages o archivo) se descarga con un enlace normal
+    const type = /\.csv$/i.test(filename) ? "text/csv" : /\.html?$/i.test(filename) ? "text/html" : "text/plain";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], { type: type + ";charset=utf-8" }));
+    a.download = filename;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    return;
+  }
   try { await downloads.save({ filename, data }); } catch (e) { if (e && e.code !== "declined") toast("No se pudo descargar el archivo."); }
 }
 
@@ -1150,11 +1202,7 @@ function renderVenta() {
   const focusId = document.activeElement && document.activeElement.id;
   const caret = focusId && document.activeElement.selectionStart;
   const q = norm(pickQ);
-  const res = q ? S.products.map(p => {
-    const hay = norm(p.nombre + " " + (p.codigo || "") + " " + (p.categoria || "")+" "+(p.variantes||[]).map(v=>[v.talla,v.color,v.codigo].join(" ")).join(" "));
-    const s = hay.includes(q) ? 1 + (hay.startsWith(q) ? 0.5 : 0) : similarity({ nombre: pickQ }, p);
-    return { p, s };
-  }).filter(x => x.s >= 0.35).sort((a, b) => b.s - a.s).slice(0, 8) : [];
+  const res = productMatches(pickQ);
   const total = draftTotal();
   el.innerHTML = `
     <div class="toolbar"><h1 style="margin-right:auto">Nueva nota de venta</h1><span class="muted num">${folioTxt(nextFolio())}</span></div>
@@ -1166,7 +1214,7 @@ function renderVenta() {
         </div>
         <div class="picker">
           <label class="f"><span>Agregar producto</span><input type="search" id="d-pick" value="${esc(pickQ)}" placeholder="${S.products.length ? "Escribe nombre o código" : "Primero agrega productos en Inventario"}" autocomplete="off"></label>
-          ${q ? `<div class="results">${res.length ? res.map(x => x.p.variantes&&x.p.variantes.length ? x.p.variantes.map(v=>`<button data-addline="${esc(x.p.id)}" data-variant="${esc(v.id)}"><span>${esc(x.p.nombre)} – ${esc([v.talla,v.color].filter(Boolean).join(" / "))}</span><span class="num">${money(v.precio??x.p.precio)}</span><small>${esc(v.codigo||x.p.codigo||"")}</small><small class="num">stock ${qty(v.stock)} ${esc(x.p.unidad||"und")}</small></button>`).join("") : `<button data-addline="${esc(x.p.id)}"><span>${esc(x.p.nombre)}</span><span class="num">${money(x.p.precio)}</span><small>${esc(x.p.categoria || "Sin categoría")}</small><small class="num">stock ${qty(x.p.stock)} ${esc(x.p.unidad || "und")}</small></button>`).join("") : `<div style="padding:10px" class="muted">Sin coincidencias. <button class="btn ghost" data-quickadd="1" style="padding:2px 6px">Crear «${esc(pickQ)}»</button></div>`}</div>` : ""}
+          ${q ? pickerResultsHtml(res, `Crear «${esc(pickQ)}»`) : ""}
         </div>
         <div class="lines">
           ${draft.items.length ? `<div class="line line-head"><span>Producto</span><span style="text-align:right">Cant.</span><span style="text-align:right">Precio</span><span class="sub">Importe</span><span></span></div>` : ""}
@@ -1176,7 +1224,7 @@ function renderVenta() {
             const available = pv ? n2(pv.stock) : p && totalStock(p);
             const over = p && n2(i.cant) > available;
             return `<div class="line">
-              <div class="nm">${esc(i.nombre)}<small>${p ? `stock ${qty(available)} ${esc(p.unidad || "und")}` : "producto eliminado"}</small>${over ? `<small class="warnline">Supera el stock disponible</small>` : ""}</div>
+              <div class="nm">${esc(i.nombre)}<small>${p ? `stock ${qty(available)} ${esc(p.unidad || "und")}` : i.productId ? "producto eliminado" : "no descuenta stock"}</small>${over ? `<small class="warnline">Supera el stock disponible</small>` : ""}</div>
               <input type="number" id="l-cant-${k}" data-cant="${k}" value="${i.cant}" min="0" step="1" inputmode="decimal" aria-label="Cantidad">
               <input type="number" id="l-precio-${k}" data-precio="${k}" value="${i.precio}" min="0" step="0.01" inputmode="decimal" aria-label="Precio unitario">
               <span class="sub">${money(n2(i.cant) * n2(i.precio))}</span>
@@ -1195,11 +1243,31 @@ function renderVenta() {
     </div>`;
   if (focusId && document.getElementById(focusId)) { const i = document.getElementById(focusId); i.focus(); try { i.setSelectionRange(caret, caret); } catch {} }
 }
+// buscador de productos de Nueva venta y de Cotizaciones
+function productMatches(text) {
+  const q = norm(text);
+  if (!q) return [];
+  return S.products.map(p => {
+    const hay = norm(p.nombre + " " + (p.codigo || "") + " " + (p.categoria || "") + " " + (p.variantes || []).map(v => [v.talla, v.color, v.codigo].join(" ")).join(" "));
+    const s = hay.includes(q) ? 1 + (hay.startsWith(q) ? 0.5 : 0) : similarity({ nombre: text }, p);
+    return { p, s };
+  }).filter(x => x.s >= 0.35).sort((a, b) => b.s - a.s).slice(0, 8);
+}
+function pickerResultsHtml(res, quickLabel) {
+  const variantBtn = (p, v) => `<button data-addline="${esc(p.id)}" data-variant="${esc(v.id)}"><span>${esc(p.nombre)} – ${esc([v.talla, v.color].filter(Boolean).join(" / "))}</span><span class="num">${money(v.precio ?? p.precio)}</span><small>${esc(v.codigo || p.codigo || "")}</small><small class="num">stock ${qty(v.stock)} ${esc(p.unidad || "und")}</small></button>`;
+  const productBtn = p => `<button data-addline="${esc(p.id)}"><span>${esc(p.nombre)}</span><span class="num">${money(p.precio)}</span><small>${esc(p.categoria || "Sin categoría")}</small><small class="num">stock ${qty(p.stock)} ${esc(p.unidad || "und")}</small></button>`;
+  const rows = res.map(x => x.p.variantes && x.p.variantes.length ? x.p.variantes.map(v => variantBtn(x.p, v)).join("") : productBtn(x.p)).join("");
+  return `<div class="results">${rows || `<div style="padding:10px" class="muted">Sin coincidencias. <button class="btn ghost" data-quickadd="1" style="padding:2px 6px">${quickLabel}</button></div>`}</div>`;
+}
+// línea de venta o cotización a partir de un producto (y su variante, si tiene)
+function itemFromProduct(p, variant) {
+  return { productId: p.id, ...(variant ? { variantId: variant.id, talla: variant.talla || "", color: variant.color || "" } : {}), nombre: p.nombre + (variant ? " – " + [variant.talla, variant.color].filter(Boolean).join(" / ") : ""), unidad: p.unidad || "und", cant: 1, precio: n2(variant && variant.precio != null ? variant.precio : p.precio) };
+}
 function addLine(p, variant) {
   if(p.variantes&&p.variantes.length&&!variant)return;
   const ex = draft.items.find(i => i.productId === p.id && i.variantId === (variant&&variant.id));
   if (ex) ex.cant = n2(ex.cant) + 1;
-  else draft.items.push({ productId: p.id, ...(variant?{variantId:variant.id,talla:variant.talla||"",color:variant.color||""}:{}), nombre: p.nombre+(variant?" – "+[variant.talla,variant.color].filter(Boolean).join(" / "):""), unidad: p.unidad || "und", cant: 1, precio: n2(variant&&variant.precio!=null?variant.precio:p.precio) });
+  else draft.items.push(itemFromProduct(p, variant));
   pickQ = ""; saveDraft(); renderVenta(); $("#d-pick").focus();
 }
 $("#v-venta").addEventListener("click", async e => {
@@ -1227,6 +1295,7 @@ async function emitNote(btn) {
   const items = draft.items.filter(i => n2(i.cant) > 0).map(i => ({ ...i, cant: n2(i.cant), precio: n2(i.precio) }));
   if (!items.length) return;
   btn.disabled = true;
+  const fromQuote = draft.cotizacionId;
   const note = {
     id: uid(), folio: nextFolio(), fecha: new Date().toISOString(),
     cliente: draft.cliente.trim(), doc: draft.doc.trim(), obs: draft.obs.trim(),
@@ -1251,6 +1320,8 @@ async function emitNote(btn) {
       throw err;
     }
     saleAdjusting = false;
+    // la cotización de la que salió la venta queda marcada como vendida
+    if (fromQuote) { try { await patchQuote(fromQuote, { estado: "vendida", notaId: note.id, notaFolio: note.folio }); } catch {} }
     draft = blankDraft(); saveDraft();
     S.selNote = note.id;
     toast("Nota " + folioTxt(note.folio) + " emitida");
@@ -1366,7 +1437,7 @@ function ticketHtml(n, preview, settings = S.settings) {
       ? `<div class="product-head narrow-row"><span>DESCRIPCIÓN</span><span class="small-detail">CANT × P.UNIT = IMPORTE</span></div>`
       : `<div class="product-head"><span>CANT</span><span>DESCRIPCIÓN</span><span>P.UNIT</span><span>IMPORTE</span></div>`}
     ${rows || `<div class="c" style="opacity:.6">Sin productos todavía</div>`}
-    <div class="tr" style="margin-top:4px"><span>Artículos</span><span>${qty(items.reduce((a, i) => a + n2(i.cant), 0))}</span></div>
+    <div class="tr" style="margin-top:4px"><span>Artículos</span><span>${qty(items.reduce((a, i) => a + itemUnits(i), 0))}</span></div>
     <div class="tr tot"><span>TOTAL</span><span>${money(n.total)}</span></div>
     ${s.montoEnLetras !== false ? `<div class="amount-words">SON: ${esc(numeroALetras(n.total, s.moneda || "S/"))}</div>` : ""}
     ${n.obs ? `<hr><div class="wrap">Obs.: ${esc(n.obs)}</div>` : ""}
@@ -1449,16 +1520,19 @@ function canPrintLocally() { return !db || fbMode; }
 // el bloqueo se libera al volver de print() o, como respaldo, a los 15 s.
 let printingFrame = null, printingSince = 0;
 function printLocal(n, button) {
+  printFrame(printHtml(n, false), (S.settings.papel === "58" ? 58 : 80) + "mm", button);
+}
+// Imprime un documento completo (ticket o A4) desde un iframe oculto del ancho del papel.
+function printFrame(html, width, button) {
   if (printingFrame && Date.now() - printingSince < 15000) return;
   // Un iframe de una impresión anterior que no avisó afterprint se quita al empezar otra.
   document.querySelectorAll("iframe[data-ticket-print]").forEach(f => f.remove());
-  const w = S.settings.papel === "58" ? 58 : 80;
   const frame = document.createElement("iframe");
   frame.dataset.ticketPrint = "1";
   printingFrame = frame; printingSince = Date.now();
   if (button) button.disabled = true;
-  frame.title = "Impresión de ticket";
-  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}mm;height:1000px;border:0;visibility:visible`;
+  frame.title = "Impresión";
+  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${width};height:1000px;border:0;visibility:visible`;
   let started = false;
   const unlock = () => {
     if (printingFrame === frame) printingFrame = null;
@@ -1466,7 +1540,7 @@ function printLocal(n, button) {
   };
   const finish = () => { frame.remove(); unlock(); };
   frame.onload = () => {
-    if (started || !frame.contentDocument || !frame.contentDocument.querySelector(".ticket")) return;
+    if (started || !frame.contentDocument || !frame.contentDocument.querySelector(".ticket,.a4")) return;
     started = true;
     const win = frame.contentWindow, doc = frame.contentDocument;
     win.addEventListener("afterprint", finish, { once: true });
@@ -1482,7 +1556,7 @@ function printLocal(n, button) {
     }).catch(finish);
   };
   frame.onerror = finish;
-  frame.srcdoc = printHtml(n, false);
+  frame.srcdoc = html;
   document.body.append(frame);
 }
 
@@ -1561,6 +1635,554 @@ $("#v-notas").addEventListener("click", async e => {
       }
       toast("Nota anulada; el stock se devolvió al inventario");
     } catch (err) { toast("No se pudo anular; se revirtieron los cambios. " + failMsg(err)); t.disabled = false; }
+  }
+});
+
+// ---------- documentos A4 (cotizaciones y reportes) ----------
+// La hoja se ve igual en pantalla y al imprimir: este CSS también se copia en el archivo que se imprime.
+const A4_CSS = `
+.a4{background:#fff;color:#1d2622;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:12px;line-height:1.45;--a4-accent:#0d6e5f;--a4-soft:#e3f1ed;--a4-line:#d5ddd9;--a4-muted:#5f6f68}
+.a4 *{box-sizing:border-box}
+.a4-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid var(--a4-accent)}
+.a4-biz{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.a4-biz img{max-width:90px;max-height:70px;object-fit:contain}
+.a4-biz h1{margin:0 0 2px;font-size:1.45em;line-height:1.2;color:var(--a4-accent)}
+.a4-biz p{margin:0;color:var(--a4-muted);overflow-wrap:anywhere}
+.a4-doc{flex:none;text-align:right}
+.a4-kind{font-size:1.5em;font-weight:700;letter-spacing:.04em;color:var(--a4-accent)}
+.a4-num{display:inline-block;margin-top:4px;padding:3px 10px;border-radius:4px;background:var(--a4-soft);font-weight:700;font-family:Consolas,"Courier New",monospace}
+.a4-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.a4-box{border:1px solid var(--a4-line);border-radius:6px;padding:10px 12px;min-width:0}
+.a4-box h3,.a4-kpi span{margin:0 0 6px;font-size:.8em;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--a4-muted)}
+.a4-box b{overflow-wrap:anywhere}
+.a4-kv{display:flex;justify-content:space-between;gap:10px}
+.a4 table{width:100%;border-collapse:collapse;margin:6px 0 4px}
+.a4 th{background:var(--a4-accent);color:#fff;font-weight:600;text-align:left;padding:7px 8px;font-size:.92em}
+.a4 td{padding:7px 8px;border-bottom:1px solid var(--a4-line);vertical-align:top;overflow-wrap:anywhere}
+.a4 tbody tr:nth-child(even) td{background:#f5f8f7}
+.a4 .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.a4 tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--a4-accent)}
+.a4 tr{break-inside:avoid}
+.a4-totals{margin-left:auto;width:min(280px,100%);margin-top:8px}
+.a4-totals .a4-kv{padding:4px 8px}
+.a4-totals .a4-grand{background:var(--a4-accent);color:#fff;border-radius:4px;font-size:1.2em;font-weight:700;padding:8px}
+.a4-words{margin-top:8px;font-size:.92em;color:var(--a4-muted)}
+.a4-notes p{margin:0;white-space:pre-wrap}
+.a4 h2{font-size:1.05em;margin:18px 0 4px;color:var(--a4-accent)}
+.a4-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}
+.a4-kpi{border:1px solid var(--a4-line);border-radius:6px;padding:8px 10px;min-width:0}
+.a4-kpi span{display:block;margin:0}
+.a4-kpi b{font-size:1.25em;overflow-wrap:anywhere}
+.a4-sub{color:var(--a4-muted);margin-top:8px}
+.a4-empty{color:var(--a4-muted)}
+.a4-stamp{display:inline-block;border:2px solid currentColor;padding:1px 8px;border-radius:4px;font-weight:700;font-size:.85em;margin-top:6px}
+.a4-foot{margin-top:24px;padding-top:10px;border-top:1px solid var(--a4-line);color:var(--a4-muted);font-size:.88em;text-align:center}
+.a4-foot p{margin:2px 0}
+`;
+document.head.append(Object.assign(document.createElement("style"), { textContent: A4_CSS }));
+const fmtDay = d => { d = new Date(d); return isNaN(d) ? "" : d.toLocaleDateString("es", { day: "2-digit", month: "2-digit", year: "numeric" }); };
+const round2 = v => Math.round(n2(v) * 100) / 100;
+function socialLinks(s) {
+  return [
+    s.facebook && "Facebook: " + s.facebook,
+    s.instagram && "Instagram: " + s.instagram,
+    s.tiktok && "TikTok: " + s.tiktok,
+    s.web && "Tienda virtual: " + s.web
+  ].filter(Boolean);
+}
+// Cabecera como en Treinta: logo y datos del negocio a la izquierda, tipo y número del documento a la derecha.
+function docHeadHtml(kind, number) {
+  const s = S.settings;
+  const address = [s.direccion, s.ciudad].filter(Boolean).join(" · ");
+  const contact = [s.telefono && "Tel./WhatsApp: " + s.telefono, s.correo].filter(Boolean).join(" · ");
+  return `<div class="a4-head">
+    <div class="a4-biz">
+      ${/^data:image\//.test(s.logo || "") ? `<img src="${esc(s.logo)}" alt="">` : ""}
+      <div>
+        <h1>${esc(s.negocio || "Mi negocio")}</h1>
+        ${s.razonSocial ? `<p>${esc(s.razonSocial)}</p>` : ""}
+        ${s.ruc ? `<p>RUC: ${esc(s.ruc)}</p>` : ""}
+        ${address ? `<p>${esc(address)}</p>` : ""}
+        ${contact ? `<p>${esc(contact)}</p>` : ""}
+      </div>
+    </div>
+    <div class="a4-doc"><div class="a4-kind">${esc(kind)}</div>${number ? `<div class="a4-num">${esc(number)}</div>` : ""}</div>
+  </div>`;
+}
+function docFootHtml(note) {
+  const s = S.settings, social = s.mostrarRedes !== false ? socialLinks(s) : [];
+  return `<div class="a4-foot">
+    ${note ? `<p>${esc(note)}</p>` : ""}
+    ${social.length ? `<p>${esc(social.join(" · "))}</p>` : ""}
+  </div>`;
+}
+function a4PrintHtml(title, body, autoPrint) {
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+@page{size:A4;margin:12mm}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+${A4_CSS}
+.hint{font-family:system-ui,sans-serif;font-size:14px;max-width:210mm;margin:16px auto;padding:0 16px;color:#333}
+.hint button{font:inherit;font-weight:600;padding:8px 14px;cursor:pointer}
+@media screen{body{background:#e9ecea}.a4{max-width:210mm;margin:0 auto 16px;padding:14mm;box-shadow:0 2px 10px rgb(0 0 0 / .15)}}
+@media print{.hint{display:none}}
+</style></head><body>
+<div class="hint"><p>Si no se abrió la ventana de impresión, presiona <b>Ctrl + P</b> o el botón. Elige papel <b>A4</b>. Para guardarlo como PDF, en «Impresora» o «Destino» elige <b>Guardar como PDF</b>.</p><button onclick="print()">Imprimir</button></div>
+${body}
+${autoPrint ? '<script>addEventListener("load",function(){setTimeout(function(){print()},300)})<\/script>' : ""}
+</body></html>`;
+}
+// En claude.ai no se puede imprimir desde la página: se descarga el archivo listo para imprimir.
+async function printA4(title, body, button) {
+  if (canPrintLocally()) {
+    printFrame(a4PrintHtml(title, body, false), "210mm", button);
+    toast("Elige papel A4. Para PDF: «Guardar como PDF».");
+  }
+  else await saveFile(title + ".html", a4PrintHtml(title, body, true));
+}
+function csvText(rows) {
+  return "﻿" + rows.map(r => r.map(v => /[",;\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v).join(",")).join("\n");
+}
+
+// ---------- cotizaciones ----------
+const quoteNum = n => "COT-" + String(n).padStart(5, "0");
+const blankQuote = () => ({ id: null, numero: null, cliente: "", doc: "", telefono: "", direccion: "", validez: 15, descuento: "", obs: store.get("mostrador.quoteObs") || "", items: [] });
+let quoteEdit = store.get("mostrador.quoteDraft"); // null: se ve la lista; un objeto: se está armando una cotización
+let quoteQ = "", quotePickQ = "", selQuote = null, quotesBlocked = false;
+const saveQuoteDraft = () => store.set("mostrador.quoteDraft", quoteEdit);
+const quoteSubtotal = q => (q.items || []).reduce((a, i) => a + n2(i.cant) * n2(i.precio), 0);
+const nextQuoteNum = () => S.quotes.reduce((m, q) => Math.max(m, n2(q.numero)), 0) + 1;
+function quoteExpiry(q) { const d = new Date(q.fecha || Date.now()); d.setDate(d.getDate() + (n2(q.validez) || 15)); return d; }
+function quoteState(q) {
+  if (q.estado === "vendida") return "Vendida";
+  const end = quoteExpiry(q); end.setHours(23, 59, 59, 999);
+  return end < new Date() ? "Vencida" : "Pendiente";
+}
+function quoteDocHtml(q, preview) {
+  const s = S.settings;
+  const items = (q.items || []).filter(i => n2(i.cant) > 0);
+  const sub = round2(quoteSubtotal({ items }));
+  const desc = Math.min(round2(q.descuento), sub);
+  const total = round2(sub - desc);
+  const state = preview ? "" : quoteState(q);
+  return `<article class="a4 a4-page">
+    ${docHeadHtml("COTIZACIÓN", quoteNum(q.numero) + (preview ? " (borrador)" : ""))}
+    <div class="a4-meta">
+      <div class="a4-box"><h3>Cliente</h3>
+        <b>${esc(q.cliente || "Cliente")}</b>
+        ${q.doc ? `<div>DNI / RUC: ${esc(q.doc)}</div>` : ""}
+        ${q.telefono ? `<div>Tel.: ${esc(q.telefono)}</div>` : ""}
+        ${q.direccion ? `<div>${esc(q.direccion)}</div>` : ""}
+      </div>
+      <div class="a4-box"><h3>Detalle</h3>
+        <div class="a4-kv"><span>Fecha de emisión</span><b>${fmtDay(q.fecha || Date.now())}</b></div>
+        <div class="a4-kv"><span>Válida hasta</span><b>${fmtDay(quoteExpiry(q))}</b></div>
+        ${q.vendedorNombre ? `<div class="a4-kv"><span>Atendió</span><b>${esc(q.vendedorNombre)}</b></div>` : ""}
+        ${state && state !== "Pendiente" ? `<span class="a4-stamp">${state.toUpperCase()}</span>` : ""}
+      </div>
+    </div>
+    <table>
+      <thead><tr><th style="width:2.4em">#</th><th>Descripción</th><th class="n">Cant.</th><th class="n">P. unit.</th><th class="n">Importe</th></tr></thead>
+      <tbody>${items.map((i, k) => `<tr><td>${k + 1}</td><td>${esc(i.nombre)}</td><td class="n">${qty(i.cant)} ${esc(i.unidad || "")}</td><td class="n">${money(i.precio)}</td><td class="n">${money(n2(i.cant) * n2(i.precio))}</td></tr>`).join("")
+        || `<tr><td colspan="5" class="a4-empty">Agrega productos a la cotización.</td></tr>`}</tbody>
+    </table>
+    <div class="a4-totals">
+      <div class="a4-kv"><span>Subtotal</span><span class="n">${money(sub)}</span></div>
+      ${desc ? `<div class="a4-kv"><span>Descuento</span><span class="n">− ${money(desc)}</span></div>` : ""}
+      <div class="a4-kv a4-grand"><span>TOTAL</span><span class="n">${money(total)}</span></div>
+    </div>
+    ${s.montoEnLetras !== false ? `<div class="a4-words">SON: ${esc(numeroALetras(total, s.moneda || "S/"))}</div>` : ""}
+    ${q.obs ? `<div class="a4-notes"><h2>Condiciones y notas</h2><p>${esc(q.obs)}</p></div>` : ""}
+    ${docFootHtml("Precios sujetos a stock disponible. Esta cotización no es un comprobante de pago.")}
+  </article>`;
+}
+function renderCotizaciones() {
+  if (!exigir("cotizacion.ver", "ver cotizaciones")) return;
+  if (quoteEdit) return renderQuoteEditor();
+  const el = $("#v-cotizaciones");
+  const focusId = document.activeElement && document.activeElement.id;
+  const quotes = [...S.quotes].sort((a, b) => n2(b.numero) - n2(a.numero));
+  const q = norm(quoteQ);
+  const list = quotes.filter(x => !q || norm(quoteNum(x.numero) + " " + (x.cliente || "") + " " + (x.doc || "") + " " + (x.items || []).map(i => i.nombre).join(" ")).includes(q));
+  if (!selQuote || !S.quotes.some(x => x.id === selQuote)) selQuote = list[0] && list[0].id;
+  const sel = S.quotes.find(x => x.id === selQuote);
+  const pending = quotes.filter(x => quoteState(x) === "Pendiente");
+  const chip = st => `<span class="chip ${st === "Vencida" ? "out" : st === "Vendida" ? "ex" : "low"}">${st}</span>`;
+  el.innerHTML = `
+    <div class="toolbar"><h1 style="margin-right:auto">Cotizaciones</h1><button class="btn primary" id="q-new">+ Nueva cotización</button></div>
+    ${quotesBlocked ? `<p class="banner">Para guardar cotizaciones falta actualizar las reglas de Firebase: copia el archivo <b>firestore.rules</b> en Firestore → Reglas → Publicar.</p>` : ""}
+    <div class="stats">
+      <div class="stat"><b>${quotes.length}</b><span>Cotizaciones</span></div>
+      <div class="stat"><b>${pending.length}</b><span>Pendientes</span></div>
+      <div class="stat"><b>${money(pending.reduce((a, x) => a + n2(x.total), 0))}</b><span>Por cerrar</span></div>
+      <div class="stat"><b>${quotes.filter(x => x.estado === "vendida").length}</b><span>Vendidas</span></div>
+    </div>
+    <div class="quotes">
+      <div>
+        <div class="toolbar"><input class="grow" type="search" id="quoteSearch" placeholder="Buscar por número, cliente o producto" value="${esc(quoteQ)}"></div>
+        ${!S.loaded ? `<div class="empty">Cargando…</div>` : !quotes.length
+          ? `<div class="empty"><h2>Aún no hay cotizaciones</h2><p>Arma una con <b>+ Nueva cotización</b>, imprímela en A4 o guárdala como PDF. Cuando el cliente acepte, conviértela en venta.</p></div>`
+          : `<div class="list">${list.map(x => `<button class="nrow" data-quote="${esc(x.id)}" aria-current="${x.id === selQuote}">
+              <span class="fol">${quoteNum(x.numero)}</span>
+              <span class="who">${esc(x.cliente || "Cliente")}<small>${fmtDay(x.fecha)} · ${(x.items || []).length} ${(x.items || []).length === 1 ? "ítem" : "ítems"}</small></span>
+              <span class="amt num">${money(x.total)}<small>${chip(quoteState(x))}</small></span></button>`).join("") || `<div class="empty">Ninguna cotización coincide.</div>`}</div>`}
+      </div>
+      <div>
+        ${sel ? `<div class="doc-actions">
+            <button class="btn primary" id="q-print">Imprimir A4 / PDF</button>
+            <button class="btn" id="q-wa">Enviar por WhatsApp</button>
+            ${sel.estado !== "vendida" && puede("venta.crear") ? `<button class="btn" id="q-sell">Convertir en venta</button>` : ""}
+            ${puede("cotizacion.editar") && sel.estado !== "vendida" ? `<button class="btn" id="q-edit">Editar</button>` : ""}
+            <button class="btn" id="q-copy">Duplicar</button>
+            ${puede("cotizacion.eliminar") ? `<button class="btn danger" id="q-del">Eliminar</button>` : ""}
+          </div>
+          ${sel.estado === "vendida" && sel.notaFolio ? `<p class="muted" style="margin:0 0 10px">Vendida con la nota ${folioTxt(sel.notaFolio)}.</p>` : ""}
+          <div class="a4-stage">${quoteDocHtml(sel)}</div>` : ""}
+      </div>
+    </div>`;
+  if (focusId === "quoteSearch") { const i = $("#quoteSearch"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+function renderQuoteEditor() {
+  const el = $("#v-cotizaciones");
+  const focusId = document.activeElement && document.activeElement.id;
+  const caret = focusId && document.activeElement.selectionStart;
+  const qd = quoteEdit;
+  const res = productMatches(quotePickQ);
+  const sub = quoteSubtotal(qd);
+  const total = Math.max(0, round2(sub - n2(qd.descuento)));
+  const validez = n2(qd.validez) || 15;
+  el.innerHTML = `
+    <div class="toolbar"><h1 style="margin-right:auto">${qd.id ? "Editar cotización" : "Nueva cotización"}</h1><span class="muted num">${quoteNum(qd.numero || nextQuoteNum())}</span></div>
+    <div class="quote-editor">
+      <div class="panel">
+        <div class="grid2">
+          <label class="f"><span>Cliente</span><input type="text" id="q-cliente" value="${esc(qd.cliente)}" placeholder="Nombre o empresa" autocomplete="off"></label>
+          <label class="f"><span>DNI / RUC</span><input type="text" id="q-doc" value="${esc(qd.doc)}" placeholder="Opcional" autocomplete="off"></label>
+          <label class="f"><span>Teléfono / WhatsApp</span><input type="text" id="q-tel" value="${esc(qd.telefono)}" placeholder="Opcional" inputmode="tel" autocomplete="off"></label>
+          <label class="f"><span>Dirección o correo</span><input type="text" id="q-dir" value="${esc(qd.direccion)}" placeholder="Opcional" autocomplete="off"></label>
+        </div>
+        <div class="picker">
+          <label class="f"><span>Agregar producto</span><input type="search" id="q-pick" value="${esc(quotePickQ)}" placeholder="Escribe nombre o código" autocomplete="off"></label>
+          ${norm(quotePickQ) ? pickerResultsHtml(res, `Agregar «${esc(quotePickQ)}» como ítem libre`) : ""}
+        </div>
+        <div class="lines">
+          ${qd.items.length ? `<div class="line line-head"><span>Producto</span><span style="text-align:right">Cant.</span><span style="text-align:right">Precio</span><span class="sub">Importe</span><span></span></div>` : ""}
+          ${qd.items.map((i, k) => `<div class="line">
+              <div class="nm">${esc(i.nombre)}<small>${i.productId ? esc(i.unidad || "und") : "ítem libre"}</small></div>
+              <input type="number" id="ql-cant-${k}" data-qcant="${k}" value="${i.cant}" min="0" step="1" inputmode="decimal" aria-label="Cantidad">
+              <input type="number" id="ql-precio-${k}" data-qprecio="${k}" value="${i.precio}" min="0" step="0.01" inputmode="decimal" aria-label="Precio unitario">
+              <span class="sub">${money(n2(i.cant) * n2(i.precio))}</span>
+              <button class="x" data-qrm="${k}" aria-label="Quitar ${esc(i.nombre)}">×</button>
+            </div>`).join("") || `<p class="muted" style="margin:4px 0">Busca un producto arriba. Si no está en tu inventario, agrégalo como ítem libre.</p>`}
+        </div>
+        <div class="grid2">
+          <label class="f"><span>Válida por</span><select id="q-validez">${[7, 15, 30, 60].map(d => `<option value="${d}" ${d === validez ? "selected" : ""}>${d} días</option>`).join("")}</select></label>
+          <label class="f"><span>Descuento (${esc(S.settings.moneda)})</span><input type="number" id="q-desc" value="${esc(qd.descuento)}" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+        </div>
+        <label class="f"><span>Condiciones y notas</span><textarea id="q-obs" placeholder="Ej. Precios incluyen IGV. Entrega en 3 días hábiles. Adelanto del 50 %.">${esc(qd.obs)}</textarea></label>
+        <div class="total-row"><span>Total</span><b>${money(total)}</b></div>
+        <div class="actions">
+          <button class="btn ghost" id="q-cancel">Cancelar</button>
+          <div class="r"><button class="btn primary" id="q-save" ${qd.items.some(i => n2(i.cant) > 0) ? "" : "disabled"}>Guardar cotización</button></div>
+        </div>
+      </div>
+      <div class="a4-stage">${quoteDocHtml({ ...qd, numero: qd.numero || nextQuoteNum(), fecha: qd.fecha || new Date().toISOString(), vendedorNombre: qd.vendedorNombre || usuarioActual()?.nombre }, true)}</div>
+    </div>`;
+  if (focusId && document.getElementById(focusId)) { const i = document.getElementById(focusId); i.focus(); try { i.setSelectionRange(caret, caret); } catch {} }
+}
+function quoteWhatsappText(q) {
+  const lines = (q.items || []).map(i => `• ${i.nombre} × ${qty(i.cant)} = ${money(n2(i.cant) * n2(i.precio))}`);
+  return [
+    `Hola${q.cliente ? " " + q.cliente : ""}, te envío la cotización ${quoteNum(q.numero)} de ${S.settings.negocio}:`,
+    "", ...lines, "",
+    ...(n2(q.descuento) ? ["Descuento: " + money(q.descuento)] : []),
+    "Total: " + money(q.total),
+    "Válida hasta: " + fmtDay(quoteExpiry(q)),
+  ].join("\n");
+}
+async function saveQuote(btn) {
+  const qd = quoteEdit;
+  const prev = qd.id ? S.quotes.find(x => x.id === qd.id) : null;
+  if (!exigir(prev ? "cotizacion.editar" : "cotizacion.crear", "guardar cotizaciones")) return;
+  const items = qd.items.filter(i => n2(i.cant) > 0).map(i => ({ ...i, cant: n2(i.cant), precio: n2(i.precio) }));
+  if (!items.length) return;
+  const subtotal = round2(quoteSubtotal({ items }));
+  const descuento = Math.min(round2(qd.descuento), subtotal);
+  const user = usuarioActual();
+  const quote = {
+    ...(prev || {}),
+    id: prev ? prev.id : uid(),
+    numero: prev ? prev.numero : nextQuoteNum(),
+    fecha: prev ? prev.fecha : new Date().toISOString(),
+    cliente: qd.cliente.trim(), doc: qd.doc.trim(), telefono: qd.telefono.trim(), direccion: qd.direccion.trim(),
+    validez: n2(qd.validez) || 15, obs: qd.obs.trim(), items, subtotal, descuento, total: round2(subtotal - descuento),
+    estado: prev ? prev.estado || "pendiente" : "pendiente",
+    vendedorId: prev ? prev.vendedorId : user?.id, vendedorNombre: prev ? prev.vendedorNombre : user?.nombre,
+  };
+  btn.disabled = true;
+  try {
+    await putQuote(quote);
+    store.set("mostrador.quoteObs", quote.obs);
+    quoteEdit = null; quotePickQ = ""; saveQuoteDraft();
+    selQuote = quote.id;
+    toast("Cotización " + quoteNum(quote.numero) + " guardada");
+    renderCotizaciones();
+  } catch (err) { toast(failMsg(err)); btn.disabled = false; }
+}
+$("#v-cotizaciones").addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const sel = S.quotes.find(x => x.id === selQuote);
+  if (t.dataset.quote) { selQuote = t.dataset.quote; return renderCotizaciones(); }
+  if (t.id === "q-new") {
+    if (!exigir("cotizacion.crear", "crear cotizaciones")) return;
+    quoteEdit = blankQuote(); quotePickQ = ""; saveQuoteDraft(); return renderCotizaciones();
+  }
+  // editor
+  if (quoteEdit) {
+    if (t.dataset.addline) {
+      const p = S.products.find(x => x.id === t.dataset.addline); if (!p) return;
+      const v = t.dataset.variant && p.variantes && p.variantes.find(x => x.id === t.dataset.variant);
+      if (p.variantes && p.variantes.length && !v) return;
+      const ex = quoteEdit.items.find(i => i.productId === p.id && i.variantId === (v && v.id));
+      if (ex) ex.cant = n2(ex.cant) + 1; else quoteEdit.items.push(itemFromProduct(p, v));
+      quotePickQ = ""; saveQuoteDraft(); renderQuoteEditor(); return $("#q-pick").focus();
+    }
+    if (t.dataset.quickadd) {
+      quoteEdit.items.push({ nombre: quotePickQ.trim(), unidad: "und", cant: 1, precio: 0 });
+      quotePickQ = ""; saveQuoteDraft(); renderQuoteEditor();
+      const k = quoteEdit.items.length - 1; const input = $("#ql-precio-" + k); if (input) { input.focus(); input.select(); }
+      return;
+    }
+    if (t.dataset.qrm) { quoteEdit.items.splice(+t.dataset.qrm, 1); saveQuoteDraft(); return renderQuoteEditor(); }
+    if (t.id === "q-cancel") { quoteEdit = null; quotePickQ = ""; saveQuoteDraft(); return renderCotizaciones(); }
+    if (t.id === "q-save") return saveQuote(t);
+    return;
+  }
+  if (!sel) return;
+  if (t.id === "q-print") return printA4(quoteNum(sel.numero) + " " + (sel.cliente || "cotizacion"), quoteDocHtml(sel), t);
+  if (t.id === "q-wa") {
+    const phone = String(sel.telefono || "").replace(/\D/g, "");
+    const to = phone.length === 9 ? "51" + phone : phone; // celular peruano sin código de país
+    window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(quoteWhatsappText(sel)), "_blank", "noopener");
+    return;
+  }
+  if (t.id === "q-edit") {
+    if (!exigir("cotizacion.editar", "editar cotizaciones")) return;
+    quoteEdit = { ...structuredClone(sel), descuento: sel.descuento || "" }; quotePickQ = ""; saveQuoteDraft(); return renderCotizaciones();
+  }
+  if (t.id === "q-copy") {
+    if (!exigir("cotizacion.crear", "crear cotizaciones")) return;
+    quoteEdit = { ...blankQuote(), cliente: sel.cliente || "", doc: sel.doc || "", telefono: sel.telefono || "", direccion: sel.direccion || "", validez: sel.validez || 15, descuento: sel.descuento || "", obs: sel.obs || "", items: structuredClone(sel.items || []) };
+    quotePickQ = ""; saveQuoteDraft(); toast("Copia lista para editar"); return renderCotizaciones();
+  }
+  if (t.id === "q-sell") {
+    if (!exigir("venta.crear", "crear ventas")) return;
+    if (draft.items.length && !t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = "Reemplazar la venta en curso"; return; }
+    const items = (sel.items || []).map(i => ({ ...i }));
+    // el descuento de la cotización pasa a la venta como una línea negativa que no toca el stock
+    if (n2(sel.descuento)) items.push({ nombre: "Descuento " + quoteNum(sel.numero), unidad: "", cant: 1, precio: -n2(sel.descuento) });
+    draft = { cliente: sel.cliente || "", doc: sel.doc || "", obs: "Según cotización " + quoteNum(sel.numero), items, cotizacionId: sel.id };
+    saveDraft(); toast("Cotización cargada en Nueva venta. Revisa y emite la nota.");
+    return go("venta");
+  }
+  if (t.id === "q-del") {
+    if (!exigir("cotizacion.eliminar", "eliminar cotizaciones")) return;
+    if (!t.classList.contains("armed")) { t.classList.add("armed"); t.textContent = "Confirmar eliminación"; return; }
+    try { await deleteQuote(sel.id); selQuote = null; toast("Cotización eliminada"); } catch (err) { toast(failMsg(err)); }
+  }
+});
+$("#v-cotizaciones").addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "quoteSearch") { quoteQ = t.value; return renderCotizaciones(); }
+  if (!quoteEdit) return;
+  const fields = { "q-cliente": "cliente", "q-doc": "doc", "q-tel": "telefono", "q-dir": "direccion", "q-obs": "obs", "q-validez": "validez", "q-desc": "descuento" };
+  if (t.id === "q-pick") quotePickQ = t.value;
+  else if (fields[t.id]) quoteEdit[fields[t.id]] = t.value;
+  else if (t.dataset.qcant) quoteEdit.items[+t.dataset.qcant].cant = t.value === "" ? "" : n2(t.value);
+  else if (t.dataset.qprecio) quoteEdit.items[+t.dataset.qprecio].precio = t.value === "" ? "" : n2(t.value);
+  else return;
+  saveQuoteDraft(); renderQuoteEditor();
+});
+$("#v-cotizaciones").addEventListener("keydown", e => {
+  if (e.target.id === "q-pick" && e.key === "Enter") { e.preventDefault(); const b = $("#v-cotizaciones [data-addline]") || $("#v-cotizaciones [data-quickadd]"); if (b) b.click(); }
+});
+
+// ---------- reportes ----------
+const REPORT_TYPES = [["ventas", "Ventas"], ["productos", "Productos más vendidos"], ["inventario", "Inventario valorizado"], ["reponer", "Stock por reponer"], ["cotizaciones", "Cotizaciones"]];
+const REPORT_PERIODS = [["today", "Hoy"], ["7d", "Últimos 7 días"], ["30d", "Últimos 30 días"], ["month", "Este mes"], ["lastmonth", "Mes anterior"], ["custom", "Elegir fechas"]];
+let reportType = store.get("mostrador.reportType") || "ventas";
+let reportPeriod = store.get("mostrador.reportPeriod") || "month";
+const isoDay = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+// "Elegir fechas" empieza en el mes actual, del día 1 a hoy
+let reportFrom = isoDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), reportTo = isoDay(new Date());
+function reportRange() {
+  const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let from = new Date(today), to = new Date(today);
+  if (reportPeriod === "7d") from.setDate(from.getDate() - 6);
+  else if (reportPeriod === "30d") from.setDate(from.getDate() - 29);
+  else if (reportPeriod === "month") from.setDate(1);
+  else if (reportPeriod === "lastmonth") { from = new Date(today.getFullYear(), today.getMonth() - 1, 1); to = new Date(today.getFullYear(), today.getMonth(), 0); }
+  else if (reportPeriod === "custom") {
+    const a = new Date((reportFrom || isoDay(today)) + "T00:00"), b = new Date((reportTo || isoDay(today)) + "T00:00");
+    if (!isNaN(a)) from = a;
+    if (!isNaN(b)) to = b;
+    if (from > to) [from, to] = [to, from];
+  }
+  const end = new Date(to); end.setHours(23, 59, 59, 999);
+  return { from, to, end, label: isoDay(from) === isoDay(to) ? fmtDay(from) : fmtDay(from) + " al " + fmtDay(to) };
+}
+const inRange = (iso, r) => { const d = new Date(iso); return !isNaN(d) && d >= r.from && d <= r.end; };
+const variantLabel = v => [v.talla, v.color].filter(Boolean).join(" / ");
+// Cada reporte: indicadores y tablas. Las columnas dicen cómo mostrar cada valor ("m" dinero, "q" cantidad, "p" porcentaje).
+function buildReport() {
+  const r = reportRange();
+  const needsPeriod = !["inventario", "reponer"].includes(reportType);
+  const rep = { title: (REPORT_TYPES.find(x => x[0] === reportType) || REPORT_TYPES[0])[1], period: needsPeriod ? r.label : "Al " + fmtDay(new Date()), kpis: [], sections: [], note: "" };
+  if (reportType === "ventas") {
+    const notes = S.notes.filter(n => inRange(n.fecha, r)).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const valid = notes.filter(n => n.estado !== "anulada");
+    const units = n => (n.items || []).reduce((a, i) => a + itemUnits(i), 0);
+    const total = valid.reduce((a, n) => a + n2(n.total), 0), count = valid.length, u = valid.reduce((a, n) => a + units(n), 0);
+    rep.kpis = [["Total vendido", money(total)], ["Ventas", qty(count)], ["Ticket promedio", money(count ? total / count : 0)], ["Unidades", qty(u)]];
+    const days = new Map();
+    valid.forEach(n => { const k = isoDay(new Date(n.fecha)); const d = days.get(k) || { count: 0, units: 0, total: 0 }; d.count++; d.units += units(n); d.total += n2(n.total); days.set(k, d); });
+    rep.sections.push({ title: "Ventas por día", cols: [["Fecha"], ["Ventas", "q"], ["Unidades", "q"], ["Total", "m"]],
+      rows: [...days].map(([k, d]) => [fmtDay(k + "T00:00"), d.count, d.units, d.total]), foot: ["Total", count, u, total] });
+    const sellers = new Map();
+    valid.forEach(n => { const k = n.vendedorNombre || "Sin nombre"; const d = sellers.get(k) || { count: 0, total: 0 }; d.count++; d.total += n2(n.total); sellers.set(k, d); });
+    if (sellers.size > 1) rep.sections.push({ title: "Por vendedor", cols: [["Vendedor"], ["Ventas", "q"], ["Total", "m"], ["% del total", "p"]],
+      rows: [...sellers].sort((a, b) => b[1].total - a[1].total).map(([k, d]) => [k, d.count, d.total, total ? d.total / total * 100 : 0]) });
+    rep.sections.push({ title: "Detalle de ventas", cols: [["Fecha y hora"], ["N.º"], ["Cliente"], ["Atendió"], ["Estado"], ["Total", "m"]],
+      rows: notes.map(n => [fmtDate(n.fecha), folioTxt(n.folio), n.cliente || "Público en general", n.vendedorNombre || "", n.estado === "anulada" ? "Anulada" : "Emitida", n2(n.total)]), foot: ["Total (sin anuladas)", "", "", "", "", total] });
+    const voided = notes.length - valid.length;
+    if (voided) rep.note = voided === 1 ? "1 nota anulada aparece en el detalle, pero no suma." : voided + " notas anuladas aparecen en el detalle, pero no suman.";
+  } else if (reportType === "productos") {
+    const map = new Map();
+    S.notes.filter(n => n.estado !== "anulada" && inRange(n.fecha, r)).forEach(n => (n.items || []).forEach(i => {
+      if (!i.productId) return; // descuentos e ítems libres no son productos
+      const k = i.productId + ":" + (i.variantId || ""), p = S.products.find(x => x.id === i.productId);
+      const d = map.get(k) || { nombre: i.nombre, cat: p?.categoria || "", units: 0, amount: 0 };
+      d.units += n2(i.cant); d.amount += n2(i.cant) * n2(i.precio); map.set(k, d);
+    }));
+    const rows = [...map.values()].sort((a, b) => b.amount - a.amount);
+    const total = rows.reduce((a, x) => a + x.amount, 0), units = rows.reduce((a, x) => a + x.units, 0);
+    rep.kpis = [["Productos distintos", qty(rows.length)], ["Unidades vendidas", qty(units)], ["Ingresos", money(total)], ["Más vendido", rows[0] ? rows[0].nombre : "—"]];
+    rep.sections.push({ title: "Ranking por ingresos", cols: [["#", "q"], ["Producto"], ["Categoría"], ["Unidades", "q"], ["Ingresos", "m"], ["% del total", "p"]],
+      rows: rows.map((x, k) => [k + 1, x.nombre, x.cat || "Sin categoría", x.units, x.amount, total ? x.amount / total * 100 : 0]), foot: ["", "Total", "", units, total, total ? 100 : 0] });
+  } else if (reportType === "inventario") {
+    const rows = [...S.products].sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "", "es") || a.nombre.localeCompare(b.nombre, "es"))
+      .flatMap(p => p.variantes && p.variantes.length
+        ? p.variantes.map(v => [p.nombre + " – " + variantLabel(v), p.categoria || "Sin categoría", v.codigo || p.codigo || "", n2(v.stock), n2(v.precio ?? p.precio), Math.max(0, n2(v.stock)) * n2(v.precio ?? p.precio)])
+        : [[p.nombre, p.categoria || "Sin categoría", p.codigo || "", n2(p.stock), n2(p.precio), Math.max(0, n2(p.stock)) * n2(p.precio)]]);
+    const units = rows.reduce((a, x) => a + Math.max(0, x[3]), 0), value = rows.reduce((a, x) => a + x[5], 0);
+    const cats = new Map(); rows.forEach(x => { const d = cats.get(x[1]) || { units: 0, value: 0 }; d.units += Math.max(0, x[3]); d.value += x[5]; cats.set(x[1], d); });
+    rep.kpis = [["Productos", qty(S.products.length)], ["Unidades en stock", qty(units)], ["Valor a precio de venta", money(value)], ["Categorías", qty(cats.size)]];
+    rep.sections.push({ title: "Por categoría", cols: [["Categoría"], ["Unidades", "q"], ["Valor", "m"], ["% del valor", "p"]],
+      rows: [...cats].sort((a, b) => b[1].value - a[1].value).map(([k, d]) => [k, d.units, d.value, value ? d.value / value * 100 : 0]) });
+    rep.sections.push({ title: "Detalle de productos", cols: [["Producto"], ["Categoría"], ["Código"], ["Stock", "q"], ["Precio", "m"], ["Valor", "m"]], rows, foot: ["Total", "", "", units, "", value] });
+  } else if (reportType === "reponer") {
+    const rows = [];
+    S.products.forEach(p => {
+      const vs = p.variantes || [];
+      const add = (name, stock, min) => { if (stock <= 0 || stock <= min) rows.push([name, p.categoria || "Sin categoría", stock <= 0 ? "Agotado" : "Reponer", stock, min]); };
+      if (vs.length) vs.forEach(v => add(p.nombre + " – " + variantLabel(v), n2(v.stock), n2(v.minimo ?? p.minimo)));
+      else add(p.nombre, n2(p.stock), n2(p.minimo));
+    });
+    rows.sort((a, b) => (a[2] === "Agotado" ? 0 : 1) - (b[2] === "Agotado" ? 0 : 1) || a[1].localeCompare(b[1], "es") || a[0].localeCompare(b[0], "es"));
+    const out = rows.filter(x => x[2] === "Agotado").length;
+    rep.kpis = [["Por reponer", qty(rows.length)], ["Agotados", qty(out)], ["Bajo el mínimo", qty(rows.length - out)], ["Productos revisados", qty(S.products.length)]];
+    rep.sections.push({ title: "Lista para pedir", cols: [["Producto"], ["Categoría"], ["Estado"], ["Stock", "q"], ["Mínimo", "q"]], rows });
+  } else if (reportType === "cotizaciones") {
+    const quotes = S.quotes.filter(q => inRange(q.fecha, r)).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const sold = quotes.filter(q => q.estado === "vendida"), pend = quotes.filter(q => quoteState(q) === "Pendiente");
+    const total = quotes.reduce((a, q) => a + n2(q.total), 0);
+    rep.kpis = [["Cotizaciones", qty(quotes.length)], ["Monto cotizado", money(total)], ["Vendidas", qty(sold.length) + (quotes.length ? " (" + Math.round(sold.length / quotes.length * 100) + " %)" : "")], ["Pendientes", qty(pend.length)]];
+    rep.sections.push({ title: "Detalle de cotizaciones", cols: [["Fecha"], ["N.º"], ["Cliente"], ["Válida hasta"], ["Estado"], ["Total", "m"]],
+      rows: quotes.map(q => [fmtDay(q.fecha), quoteNum(q.numero), q.cliente || "Cliente", fmtDay(quoteExpiry(q)), quoteState(q), n2(q.total)]), foot: ["Total", "", "", "", "", total] });
+  }
+  return rep;
+}
+function reportCell(v, type) {
+  if (v === "" || v == null) return "";
+  if (type === "m") return money(v);
+  if (type === "q") return qty(v);
+  if (type === "p") return n2(v).toLocaleString("es", { maximumFractionDigits: 1 }) + " %";
+  return esc(v);
+}
+function reportDocHtml(rep) {
+  const user = usuarioActual();
+  const table = sec => `<h2>${esc(sec.title)}</h2>
+    ${sec.rows.length ? `<table>
+      <thead><tr>${sec.cols.map(([t, type]) => `<th class="${type ? "n" : ""}">${esc(t)}</th>`).join("")}</tr></thead>
+      <tbody>${sec.rows.map(row => `<tr>${row.map((v, k) => `<td class="${sec.cols[k][1] ? "n" : ""}">${reportCell(v, sec.cols[k][1])}</td>`).join("")}</tr>`).join("")}</tbody>
+      ${sec.foot ? `<tfoot><tr>${sec.foot.map((v, k) => `<td class="${sec.cols[k][1] ? "n" : ""}">${reportCell(v, typeof v === "number" ? sec.cols[k][1] : "")}</td>`).join("")}</tr></tfoot>` : ""}
+    </table>` : `<p class="a4-empty">Sin datos para este período.</p>`}`;
+  return `<article class="a4 a4-page">
+    ${docHeadHtml("REPORTE", rep.period)}
+    <h2 style="font-size:1.35em;margin-top:14px">${esc(rep.title)}</h2>
+    <div class="a4-sub" style="margin-top:0">Generado el ${esc(fmtDate(new Date().toISOString()))}${user ? " por " + esc(user.nombre) : ""}</div>
+    <div class="a4-kpis">${rep.kpis.map(([k, v]) => `<div class="a4-kpi"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
+    ${rep.sections.map(table).join("")}
+    ${rep.note ? `<p class="a4-sub">${esc(rep.note)}</p>` : ""}
+    ${docFootHtml("")}
+  </article>`;
+}
+// En el CSV van los números sin formato para que Excel pueda sumarlos.
+function reportCsv(rep) {
+  const rows = [[rep.title + " · " + rep.period], []];
+  rep.sections.forEach(sec => {
+    rows.push([sec.title], sec.cols.map(c => c[0]));
+    sec.rows.forEach(r => rows.push(r.map(v => typeof v === "number" ? round2(v) : v)));
+    if (sec.foot) rows.push(sec.foot.map(v => typeof v === "number" ? round2(v) : v));
+    rows.push([]);
+  });
+  return csvText(rows);
+}
+function renderReportes() {
+  if (!exigir("estadisticas.ver", "ver reportes")) return;
+  const el = $("#v-reportes");
+  const rep = buildReport();
+  const needsPeriod = !["inventario", "reponer"].includes(reportType);
+  const r = reportRange();
+  el.innerHTML = `
+    <div class="toolbar"><h1 style="margin-right:auto">Reportes</h1></div>
+    <div class="panel report-controls">
+      <div class="grid2">
+        <label class="f"><span>Reporte</span><select id="r-type">${REPORT_TYPES.map(([k, t]) => `<option value="${k}" ${k === reportType ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+        ${needsPeriod ? `<label class="f"><span>Período</span><select id="r-period">${REPORT_PERIODS.map(([k, t]) => `<option value="${k}" ${k === reportPeriod ? "selected" : ""}>${t}</option>`).join("")}</select></label>` : `<p class="muted" style="margin:0;align-self:end">Muestra el stock de hoy.</p>`}
+      </div>
+      ${needsPeriod && reportPeriod === "custom" ? `<div class="grid2">
+        <label class="f"><span>Desde</span><input type="date" id="r-from" value="${isoDay(r.from)}"></label>
+        <label class="f"><span>Hasta</span><input type="date" id="r-to" value="${isoDay(r.to)}"></label>
+      </div>` : ""}
+      <div class="actions">
+        <button class="btn primary" id="r-print">Imprimir A4 / PDF</button>
+        <button class="btn" id="r-csv">Descargar Excel (CSV)</button>
+      </div>
+      <p class="muted" style="margin:0;font-size:13px">Para tener el PDF, toca <b>Imprimir A4 / PDF</b> y en la impresora elige <b>Guardar como PDF</b>.</p>
+    </div>
+    <div class="a4-stage">${reportDocHtml(rep)}</div>`;
+}
+$("#v-reportes").addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "r-type") { reportType = t.value; store.set("mostrador.reportType", reportType); }
+  else if (t.id === "r-period") {
+    reportPeriod = t.value; store.set("mostrador.reportPeriod", reportPeriod);
+  }
+  else if (t.id === "r-from") reportFrom = t.value;
+  else if (t.id === "r-to") reportTo = t.value;
+  else return;
+  renderReportes();
+});
+$("#v-reportes").addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const rep = buildReport();
+  const name = ("reporte-" + reportType + "-" + isoDay(new Date())).toLowerCase();
+  if (t.id === "r-print") return printA4(name, reportDocHtml(rep), t);
+  if (t.id === "r-csv") {
+    if (!exigir("datos.exportar", "descargar reportes")) return;
+    return saveFile(name + ".csv", reportCsv(rep));
   }
 });
 
@@ -1646,7 +2268,7 @@ function salesInPeriod() {
 }
 function salesMetrics(notes) {
   const valid = notes.filter(n => n.estado !== "anulada");
-  return { total: valid.reduce((a,n) => a + n2(n.total),0), count: valid.length, units: valid.reduce((a,n) => a + n.items.reduce((b,i) => b+n2(i.cant),0),0) };
+  return { total: valid.reduce((a,n) => a + n2(n.total),0), count: valid.length, units: valid.reduce((a,n) => a + n.items.reduce((b,i) => b+itemUnits(i),0),0) };
 }
 function salesPreviousPeriod() {
   const now = new Date(), end = new Date(now.getFullYear(),now.getMonth(),now.getDate());
@@ -1741,7 +2363,9 @@ const mobileViewTitles = {
   inventario: "Inventario",
   venta: "Nueva venta",
   notas: "Notas",
+  cotizaciones: "Cotizaciones",
   ventas: "Ventas",
+  reportes: "Reportes",
   resumen: "Resumen",
   usuarios: "Usuarios",
   config: "Configuración"
@@ -1765,8 +2389,10 @@ document.addEventListener("keydown", e => {
   }
 });
 
+const VIEWS = ["inventario", "venta", "notas", "cotizaciones", "ventas", "reportes", "resumen", "usuarios", "config"];
 function go(view) {
-  const needed = view === "ventas" || view === "resumen" ? "estadisticas.ver" : view === "usuarios" ? "usuarios.gestionar" : view === "config" ? "ajustes.editar" : null;
+  const needed = view === "ventas" || view === "resumen" || view === "reportes" ? "estadisticas.ver"
+    : view === "usuarios" ? "usuarios.gestionar" : view === "config" ? "ajustes.editar" : view === "cotizaciones" ? "cotizacion.ver" : null;
   if (needed && !exigir(needed, "abrir " + view)) view = "inventario";
   if (!puede("inventario.ver") && view === "inventario") return;
   S.view = view;
@@ -1774,7 +2400,7 @@ function go(view) {
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.view === view));
   $("#mobileTitle").textContent = mobileViewTitles[view] || "Mostrador";
   setMobileMenu(false);
-  ["inventario", "venta", "notas", "ventas", "resumen", "usuarios", "config"].forEach(v => $("#v-" + v).hidden = v !== view);
+  VIEWS.forEach(v => $("#v-" + v).hidden = v !== view);
   try { history.replaceState(null, "", "#" + view); } catch {}
   renderAll();
   window.scrollTo({ top: 0 });
@@ -1785,6 +2411,8 @@ function renderAll() {
   else if (S.view === "venta") renderVenta();
   else if (S.view === "resumen") renderResumen();
   else if (S.view === "ventas") renderVentas();
+  else if (S.view === "cotizaciones") renderCotizaciones();
+  else if (S.view === "reportes") renderReportes();
   else if (S.view === "usuarios") renderUsuarios();
   else if (S.view === "config") renderConfig();
   else renderNotas();
@@ -1835,7 +2463,7 @@ function fbDetener() {
   fbInvitaciones = [];
   if (fb) { fb.invUnsub = null; fb.negocioId = null; fb.dueno = null; }
   db = null; sessionId = null;
-  S.products = []; S.notes = []; S.users = []; S.loaded = false;
+  S.products = []; S.notes = []; S.users = []; S.quotes = []; S.loaded = false;
   S.settings = { negocio: "Mi negocio", moneda: "S/" };
 }
 // sin internet, Firestore guarda el cambio en este equipo y lo envía solo al volver la conexión;
@@ -2016,6 +2644,7 @@ async function copiarDatosLocales(nid, local) {
   const docs = [
     ...(local.products || []).filter(p => p && p.id).map(p => ["products", p]),
     ...(local.notes || []).filter(n => n && n.id).map(n => ["notes", n]),
+    ...(local.quotes || []).filter(q => q && q.id).map(q => ["quotes", q]),
   ];
   // un lote de Firestore admite hasta 500 escrituras
   for (let i = 0; i < docs.length; i += 400) {
@@ -2186,7 +2815,7 @@ $("#v-usuarios").addEventListener("click", async e => {
 // ---------- arranque ----------
 S.group = store.get("mostrador.group") || "categoria";
 const h = (location.hash || "").slice(1);
-if (["inventario", "venta", "notas", "ventas", "resumen", "usuarios", "config"].includes(h)) S.view = h;
+if (VIEWS.includes(h)) S.view = h;
 renderLogin();
 
 (async () => {
@@ -2201,6 +2830,7 @@ renderLogin();
       mem.products = new Map((saved.products || []).filter(p => p && p.id).map(p => [p.id, p]));
       mem.notes = new Map((saved.notes || []).filter(n => n && n.id).map(n => [n.id, n]));
       mem.users = new Map((saved.users || []).filter(u => u && u.id).map(u => [u.id, u]));
+      mem.quotes = new Map((saved.quotes || []).filter(q => q && q.id).map(q => [q.id, q]));
       if (saved.settings) S.settings = { ...S.settings, ...saved.settings };
       syncMem();
     }
@@ -2246,6 +2876,15 @@ function escucharDatos() {
     S.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     gotN = true; ready(); renderAll();
   }, sinPermiso);
+  // las cotizaciones no detienen la app: si las reglas de Firebase aún no las permiten, solo se avisa
+  db.collection("quotes").onSnapshot(snap => {
+    S.quotes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    quotesBlocked = false;
+    if (S.view === "cotizaciones" || S.view === "reportes") renderAll();
+  }, e => {
+    quotesBlocked = !!(e && e.code === "permission-denied");
+    if (S.view === "cotizaciones") renderAll();
+  });
   db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { negocio: "Mi negocio", moneda: "S/", ...s.data() }; renderAll(); } }, () => {});
   if (fbMode) {
     db.collection("miembros").onSnapshot(snap => {

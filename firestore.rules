@@ -79,6 +79,14 @@ service cloud.firestore {
         allow update, delete: if admin(nid);
       }
 
+      // cotizaciones: todos las crean; al convertirlas en venta el vendedor solo las marca como vendidas
+      match /quotes/{id} {
+        allow read: if miembro(nid);
+        allow create: if admin(nid) || (miembro(nid) && request.resource.data.vendedorId == request.auth.uid);
+        allow update: if admin(nid) || (miembro(nid) && soloCambia(['estado', 'notaId', 'notaFolio']) && request.resource.data.estado == 'vendida');
+        allow delete: if admin(nid);
+      }
+
       match /settings/{doc} {
         allow read: if miembro(nid);
         allow write: if admin(nid);
