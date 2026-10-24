@@ -1878,7 +1878,7 @@ function renderQuoteEditor() {
         </div>
         <div class="grid2">
           <label class="f"><span>Válida por</span><select id="q-validez">${[7, 15, 30, 60].map(d => `<option value="${d}" ${d === validez ? "selected" : ""}>${d} días</option>`).join("")}</select></label>
-          <label class="f"><span>Descuento (${esc(S.settings.moneda)})</span><input type="number" id="q-desc" value="${esc(qd.descuento)}" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label>
+          <label class="f"><span>Descuento (${esc(S.settings.moneda)})</span><input type="text" id="q-desc" value="${esc(qd.descuento)}" inputmode="decimal" autocomplete="off" placeholder="0.00"></label>
         </div>
         <label class="f"><span>Condiciones y notas</span><textarea id="q-obs" placeholder="Ej. Precios incluyen IGV. Entrega en 3 días hábiles. Adelanto del 50 %.">${esc(qd.obs)}</textarea></label>
         <div class="total-row"><span>Total</span><b>${money(total)}</b></div>
