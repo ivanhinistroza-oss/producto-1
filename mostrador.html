@@ -1926,36 +1926,48 @@ async function quotePdfBlob(q) {
     return await html2pdf().set({
       margin: 12,
       image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, backgroundColor: "#fff" },
+      html2canvas: { scale: 2, backgroundColor: "#fff", scrollX: 0, scrollY: 0 }, // sin esto, con la página desplazada sale en blanco
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
     }).from(page).outputPdf("blob");
   } finally { box.remove(); }
 }
 // WhatsApp no deja adjuntar archivos con un enlace: en el celular se comparte el PDF
-// (eliges WhatsApp y el contacto); en la computadora se descarga y se abre el chat del número.
+// (eliges WhatsApp y el contacto); en la computadora se abre el chat del número y se descarga el PDF.
+let quotePdfCache = null; // { key, blob }: el PDF ya hecho, para compartirlo al tocar de nuevo
 async function sendQuotePdf(q, btn) {
   const phone = String(q.telefono || "").replace(/\D/g, "");
   const to = phone.length === 9 ? "51" + phone : phone; // celular peruano sin código de país
   const name = quoteNum(q.numero) + (q.cliente ? " " + q.cliente.replace(/[\\/:*?"<>|]/g, "") : "") + ".pdf";
   const text = `Hola${q.cliente ? " " + q.cliente : ""}, te envío la cotización ${quoteNum(q.numero)} de ${S.settings.negocio}. Total: ${money(q.total)}.`;
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = "Preparando PDF…";
-  let blob;
-  try { blob = await quotePdfBlob(q); }
-  catch { toast("No se pudo crear el PDF. Revisa tu internet."); return; }
-  finally { btn.disabled = false; btn.textContent = label; }
-  const file = new File([blob], name, { type: "application/pdf" });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], text }); return; }
-    catch (e) { if (e.name === "AbortError") return; } // si el permiso de compartir venció, se descarga
+  const phoneShare = !!navigator.canShare && matchMedia("(pointer:coarse)").matches;
+  // la ventana se abre en el mismo toque; si se abre después de crear el PDF, el navegador la bloquea
+  if (!phoneShare) window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(text), "_blank", "noopener");
+  const key = JSON.stringify([q, S.settings]);
+  let blob = quotePdfCache && quotePdfCache.key === key ? quotePdfCache.blob : null;
+  if (!blob) {
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Preparando PDF…";
+    try { blob = await quotePdfBlob(q); quotePdfCache = { key, blob }; }
+    catch { toast("No se pudo crear el PDF. Revisa tu internet."); return; }
+    finally { btn.disabled = false; btn.textContent = label; }
+  }
+  if (phoneShare) {
+    const file = new File([blob], name, { type: "application/pdf" });
+    if (navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text }); return; }
+      catch (e) {
+        if (e.name === "AbortError") return;
+        // crear el PDF tardó y el celular ya no permite compartir: el siguiente toque comparte al instante
+        if (e.name === "NotAllowedError") { toast("PDF listo. Toca otra vez «Enviar por WhatsApp»."); return; }
+      }
+    }
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(text), "_blank", "noopener");
-  toast("PDF descargado. Arrástralo al chat de WhatsApp para enviarlo.");
+  toast(phoneShare ? "PDF descargado. Adjúntalo en el chat de WhatsApp." : "PDF descargado. Arrástralo al chat de WhatsApp que se abrió.");
 }
 async function saveQuote(btn) {
   const qd = quoteEdit;
