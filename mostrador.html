@@ -2940,14 +2940,18 @@ function escucharDatos() {
     gotN = true; ready(); renderAll();
   }, sinPermiso);
   // las cotizaciones no detienen la app: si las reglas de Firebase aún no las permiten, solo se avisa
-  db.collection("quotes").onSnapshot(snap => {
+  const quotesDb = db;
+  const escucharCotizaciones = () => db.collection("quotes").onSnapshot(snap => {
     S.quotes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     quotesBlocked = false;
     if (S.view === "cotizaciones" || S.view === "reportes") renderAll();
   }, e => {
     quotesBlocked = !!(e && e.code === "permission-denied");
     if (S.view === "cotizaciones") renderAll();
+    // tras un error Firebase deja de avisar cambios: se vuelve a escuchar (por ejemplo, después de publicar las reglas)
+    setTimeout(() => { if (db === quotesDb) escucharCotizaciones(); }, 10000);
   });
+  escucharCotizaciones();
   db.doc("settings/app").onSnapshot(s => { if (s.exists) { S.settings = { negocio: "Mi negocio", moneda: "S/", ...s.data() }; renderAll(); } }, () => {});
   if (fbMode) {
     db.collection("miembros").onSnapshot(snap => {
