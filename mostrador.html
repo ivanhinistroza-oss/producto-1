@@ -1901,6 +1901,62 @@ function quoteWhatsappText(q) {
     "Válida hasta: " + fmtDay(quoteExpiry(q)),
   ].join("\n");
 }
+// html2pdf se carga solo la primera vez que se envía una cotización.
+let html2pdfLoad = null;
+function loadHtml2pdf() {
+  if (window.html2pdf) return Promise.resolve(window.html2pdf);
+  html2pdfLoad = html2pdfLoad || new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+    s.onload = () => ok(window.html2pdf);
+    s.onerror = () => { html2pdfLoad = null; s.remove(); fail(new Error("pdf")); };
+    document.head.append(s);
+  });
+  return html2pdfLoad;
+}
+async function quotePdfBlob(q) {
+  const html2pdf = await loadHtml2pdf();
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;left:-10000px;top:0;width:186mm;background:#fff";
+  box.innerHTML = quoteDocHtml(q);
+  const page = box.firstElementChild;
+  page.style.cssText = "padding:0;max-width:none;box-shadow:none;border-radius:0";
+  document.body.append(box);
+  try {
+    return await html2pdf().set({
+      margin: 12,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, backgroundColor: "#fff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["css", "legacy"], avoid: "tr" },
+    }).from(page).outputPdf("blob");
+  } finally { box.remove(); }
+}
+// WhatsApp no deja adjuntar archivos con un enlace: en el celular se comparte el PDF
+// (eliges WhatsApp y el contacto); en la computadora se descarga y se abre el chat del número.
+async function sendQuotePdf(q, btn) {
+  const phone = String(q.telefono || "").replace(/\D/g, "");
+  const to = phone.length === 9 ? "51" + phone : phone; // celular peruano sin código de país
+  const name = quoteNum(q.numero) + (q.cliente ? " " + q.cliente.replace(/[\\/:*?"<>|]/g, "") : "") + ".pdf";
+  const text = `Hola${q.cliente ? " " + q.cliente : ""}, te envío la cotización ${quoteNum(q.numero)} de ${S.settings.negocio}. Total: ${money(q.total)}.`;
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparando PDF…";
+  let blob;
+  try { blob = await quotePdfBlob(q); }
+  catch { toast("No se pudo crear el PDF. Revisa tu internet."); return; }
+  finally { btn.disabled = false; btn.textContent = label; }
+  const file = new File([blob], name, { type: "application/pdf" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text }); return; }
+    catch (e) { if (e.name === "AbortError") return; } // si el permiso de compartir venció, se descarga
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(text), "_blank", "noopener");
+  toast("PDF descargado. Arrástralo al chat de WhatsApp para enviarlo.");
+}
 async function saveQuote(btn) {
   const qd = quoteEdit;
   const prev = qd.id ? S.quotes.find(x => x.id === qd.id) : null;
@@ -1961,12 +2017,7 @@ $("#v-cotizaciones").addEventListener("click", async e => {
   }
   if (!sel) return;
   if (t.id === "q-print") return printA4(quoteNum(sel.numero) + " " + (sel.cliente || "cotizacion"), quoteDocHtml(sel), t);
-  if (t.id === "q-wa") {
-    const phone = String(sel.telefono || "").replace(/\D/g, "");
-    const to = phone.length === 9 ? "51" + phone : phone; // celular peruano sin código de país
-    window.open("https://wa.me/" + to + "?text=" + encodeURIComponent(quoteWhatsappText(sel)), "_blank", "noopener");
-    return;
-  }
+  if (t.id === "q-wa") return sendQuotePdf(sel, t);
   if (t.id === "q-edit") {
     if (!exigir("cotizacion.editar", "editar cotizaciones")) return;
     quoteEdit = { ...structuredClone(sel), descuento: sel.descuento || "" }; quotePickQ = ""; saveQuoteDraft(); return renderCotizaciones();
