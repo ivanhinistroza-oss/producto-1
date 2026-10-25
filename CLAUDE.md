@@ -29,6 +29,8 @@ Menú vertical a la izquierda en escritorio (≥900px) y barra inferior en el ce
 - **Resumen**: indicadores de stock, alertas (agotado o reponer, por variante), barras por categoría y top 10, mapa de calor talla × color, tabla de todos los productos.
 - **Usuarios** (solo admin): inicio de sesión simulado. PIN con SHA-256 + salt (`hashPin`). Sesión en `sessionStorage["mostrador.session"]`. Bloqueo de 30 s tras 5 fallos. Auditoría de intentos bloqueados en `localStorage["mostrador.audit"]` (50 registros).
 
+- **Tienda web** (solo Firebase): en Configuración, "Vincular con mi tienda web" guarda `settings.webVinculada` y `catalogo/{negocioId}` = `{activa, negocio}`. Los productos con `web: true` («Mostrar en la web» en el editor) se copian a `catalogo/{negocioId}/productos/{id}` con solo nombre, código, categoría, stock y variantes (`webSync`, `webPublicar`: escribe solo lo que cambió y se dispara con cada snapshot de productos). El código de vinculación es el `negocioId`. La web (`C:\Users\IVAN\Desktop\web`, `js/mostrador-link.js`) lo lee sin iniciar sesión. Cada negocio tiene su vitrina; sin vincular, nada cambia.
+
 ## Permisos (roles)
 
 `PERMISOS = { admin: ["*"], vendedor: ["inventario.ver","venta.crear","nota.ver","nota.imprimir"] }`, con `puede(permiso)` y `exigir(permiso, accion)` (registra, avisa con toast y devuelve false).

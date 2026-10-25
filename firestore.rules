@@ -37,6 +37,18 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/negocios/$(resource.data.negocioId)/miembros/$(request.auth.uid));
     }
 
+    // vitrina para la tienda web: cualquiera la ve si el negocio la vinculó; solo el negocio la cambia
+    match /catalogo/{nid} {
+      allow get: if true;
+      allow write: if admin(nid);
+      match /productos/{pid} {
+        allow read: if get(/databases/$(database)/documents/catalogo/$(nid)).data.activa == true || miembro(nid);
+        allow create, delete: if admin(nid);
+        // el vendedor, al vender, solo actualiza el stock
+        allow update: if admin(nid) || (miembro(nid) && soloCambia(['stock', 'variantes', 'actualizado']));
+      }
+    }
+
     match /negocios/{nid} {
       allow read: if miembro(nid);
       allow create: if signedIn() && request.resource.data.dueno == request.auth.uid;
