@@ -83,11 +83,11 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .sales-chart-wrap{overflow-x:auto;max-width:100%}
 .sales-chart{position:relative;display:grid;grid-template-columns:64px minmax(600px,1fr);min-height:230px}
 .sales-axis{display:flex;flex-direction:column;justify-content:space-between;padding:0 6px 24px 0;color:var(--muted);font:11px var(--f-mono);text-align:right;white-space:nowrap}
-.sales-plot{position:relative;display:flex;align-items:stretch;gap:3px;height:206px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(to top,transparent 0,transparent calc(50% - .5px),var(--line) calc(50% - .5px),var(--line) 50%,transparent 50%,transparent calc(100% - 1px),var(--line) calc(100% - 1px),var(--line) 100%)}
-.sales-bar-col{position:relative;flex:1;min-width:8px;display:flex;align-items:flex-end;justify-content:center}
+.sales-plot{position:relative;display:flex;align-items:stretch;height:206px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(to top,transparent 0,transparent calc(50% - .5px),var(--line) calc(50% - .5px),var(--line) 50%,transparent 50%,transparent calc(100% - 1px),var(--line) calc(100% - 1px),var(--line) 100%)}
+.sales-bar-col{position:relative;flex:1;min-width:10px;padding:0 1.5px;display:flex;align-items:flex-end;justify-content:center}
 .sales-bar{width:min(72%,24px);min-height:2px;background:var(--accent);border-radius:4px 4px 0 0}
-.sales-xlabels{display:flex;gap:3px;padding-left:64px;min-width:664px}
-.sales-xlabels span{flex:1;min-width:8px;text-align:center;font-size:10px;color:var(--muted);white-space:nowrap}
+.sales-xlabels{display:flex;padding-left:64px;min-width:664px}
+.sales-xlabels span{flex:1;min-width:10px;text-align:center;font-size:10px;color:var(--muted);white-space:nowrap}
 .sales-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .sales-controls .seg button{padding:7px 9px}
 .sales-table tbody tr{cursor:pointer}
@@ -96,6 +96,16 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .sales-table .voided{text-decoration:line-through;color:var(--muted)}
 .sales-table tfoot td{font-weight:700;border-top:2px solid var(--fg)}
 .sales-empty{padding:16px;color:var(--muted);text-align:center}
+/* Curva de tendencia (parábola) encima de las barras */
+.sales-trend-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.sales-trend-svg path{fill:none;stroke:var(--warn);stroke-width:2.5;stroke-dasharray:7 5;stroke-linecap:round}
+.sales-trend{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--warn-soft);font-size:14px}
+.sales-trend b{display:block;margin-bottom:2px}
+.sales-trend small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
+.sales-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--muted)}
+.sales-legend span{display:inline-flex;align-items:center;gap:6px}
+.sales-legend i{display:inline-block;width:14px;height:10px;border-radius:2px;background:var(--accent)}
+.sales-legend i.line{height:0;border-top:2.5px dashed var(--warn);border-radius:0;background:none}
 .sales-top-toggle{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-left:8px;vertical-align:middle}
 .sales-top-toggle button{border:0;background:transparent;padding:4px 7px;color:var(--muted);font-size:11px;cursor:pointer}
 .sales-top-toggle button[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg)}
@@ -2432,6 +2442,64 @@ function salesKpis(notes) {
   const data=[["Total vendido",money(current.total),context("total")],["Ventas",qty(current.count),context("count")],["Ticket promedio",money(current.average),context("average")],["Unidades vendidas",qty(current.units),context("units")]];
   return `<div class="summary-stats">${data.map(x=>`<div class="summary-stat"><span class="summary-stat-label">${x[0]}</span><b class="summary-stat-value">${x[1]}</b><span class="summary-stat-context">${x[2]}</span></div>`).join("")}</div>`;
 }
+// Parábola de tendencia: ajuste por mínimos cuadrados y = a + b·x + c·x² sobre las ventas de cada barra
+// (x de 0 a 1). Describe el período, no predice. Diseñada junto con Codex.
+function salesTrend(buckets, weekly) {
+  const n = buckets.length;
+  if (salesPeriod === "today" || n < 5) return null;
+  // un día de la semana sin ninguna venta en todo el período se toma como día de descanso y no cuenta
+  let rest = [];
+  if (!weekly) {
+    const byDay = new Map();
+    buckets.forEach(b => { const k = b.date.getDay(), e = byDay.get(k) || { n: 0, sold: 0 }; e.n++; if (b.total) e.sold++; byDay.set(k, e); });
+    rest = [...byDay].filter(([, e]) => e.n >= 2 && !e.sold).map(([k]) => k);
+  }
+  const pts = buckets.map((b, i) => ({ x: i / (n - 1), y: b.total, day: b.date && b.date.getDay() })).filter(p => !rest.includes(p.day));
+  if (pts.length < 5 || pts.filter(p => p.y > 0).length < 3) return null;
+  // ecuaciones normales 3 × 3 resueltas por Cramer
+  const sx = k => pts.reduce((a, p) => a + p.x ** k, 0), sxy = k => pts.reduce((a, p) => a + p.x ** k * p.y, 0);
+  const [s0, s1, s2, s3, s4] = [0, 1, 2, 3, 4].map(sx), [t0, t1, t2] = [0, 1, 2].map(sxy);
+  const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const M = [[s0, s1, s2], [s1, s2, s3], [s2, s3, s4]], D = det3(M);
+  if (!D) return null;
+  const solve = col => det3(M.map((r, i) => r.map((v, j) => j === col ? [t0, t1, t2][i] : v))) / D;
+  const a = solve(0), b = solve(1), c = solve(2);
+  const f = x => a + b * x + c * x * x;
+  const mean = t0 / pts.length;
+  const ssTot = pts.reduce((acc, p) => acc + (p.y - mean) ** 2, 0), ssRes = pts.reduce((acc, p) => acc + (p.y - f(p.x)) ** 2, 0);
+  const r2 = ssTot ? 1 - ssRes / ssTot : 1;
+  // pendientes medidas en todo el período (cuánto cambiaría la venta de punta a punta a ese ritmo),
+  // comparadas con el 15 % del promedio (mínimo S/ 1, para no exagerar con montos chicos)
+  const step = 1 / (n - 1), tol = 0.15 * Math.max(mean, 1);
+  const startSlope = b, endSlope = b + 2 * c, bend = Math.abs(2 * c) >= 2 * tol; // "acelera / se frena" solo si se nota
+  const curve = Array.from({ length: 61 }, (_, i) => f(i / 60)), flat = Math.max(...curve) - Math.min(...curve) < tol;
+  const xv = c ? -b / (2 * c) : -1;
+  const turn = xv > step / 2 && xv < 1 - step / 2 && Math.sign(startSlope) !== Math.sign(endSlope) && Math.abs(startSlope) >= tol;
+  // la parábola siempre "vuelve": si después del pico o del valle cambia poco, se dice que se mantiene
+  const settled = turn && Math.abs(f(1) - f(xv)) < 2 * tol;
+  const vDate = turn ? buckets[Math.round(xv * (n - 1))].date : null;
+  const when = vDate ? (weekly ? "la semana del " : "el ") + vDate.toLocaleDateString("es", { day: "numeric", month: "long" }) : "";
+  const around = when.replace(/^el /, "del ").replace(/^la /, "de la ");
+  let title;
+  // una línea casi plana es "estable" aunque el R² sea bajo (sin tendencia no hay nada que explicar)
+  if (flat) title = "Las ventas se mantienen estables.";
+  else if (r2 < 0.3) title = "Las ventas cambian mucho de un " + (weekly ? "período" : "día") + " a otro; la línea es solo una guía.";
+  else if (Math.abs(endSlope) < tol || settled) title = turn ? (startSlope > 0 ? `Subieron hasta ${when} y ahora se mantienen.` : `Bajaron hasta ${when} y ahora se mantienen.`)
+    : Math.abs(startSlope) >= tol ? (startSlope > 0 ? "Las ventas subieron y ahora se mantienen." : "Las ventas bajaron y ahora se mantienen.") : "Las ventas se mantienen estables.";
+  else if (endSlope > 0) title = turn ? `Venían bajando, tocaron su punto más bajo alrededor ${around} y ya se están recuperando.` : !bend ? "Las ventas van subiendo." : c > 0 ? "Las ventas van subiendo y cada vez más rápido." : "Las ventas suben, pero cada vez más lento.";
+  else title = turn ? `Llegaron a su punto más alto alrededor ${around} y ahora van bajando.` : !bend ? "Las ventas van bajando." : c < 0 ? "Las ventas van bajando y cada vez más rápido." : "Las ventas bajan, pero cada vez más lento.";
+  const from = Math.max(0, f(0)), to = Math.max(0, f(1)), per = weekly ? "por semana" : "por día";
+  const change = !flat && r2 >= 0.3 && Math.abs(to - from) >= tol ? `La línea pasó de unos ${money(from)} a ${money(to)} ${per}.` : "";
+  const plural = d => /s$/.test(d) ? d : d + "s";
+  const restNames = rest.sort((x, y) => (x + 6) % 7 - (y + 6) % 7).map(k => plural(new Date(2024, 0, 7 + k).toLocaleDateString("es", { weekday: "long" })));
+  const restNote = restNames.length ? `No se cuentan los ${restNames.length > 1 ? restNames.slice(0, -1).join(", los ") + " ni los " + restNames.at(-1) : restNames[0]}: no hubo ventas en ninguno de esos días (seguramente la tienda no abre).` : "";
+  const samples = Array.from({ length: 61 }, (_, i) => i / 60);
+  return { f, title, change, restNote, max: Math.max(...samples.map(x => Math.max(0, f(x)))), samples };
+}
+function trendSvg(trend, n, top) {
+  const d = trend.samples.map((x, i) => `${i ? "L" : "M"}${(x * (n - 1) + 0.5).toFixed(3)} ${(top - Math.min(top, Math.max(0, trend.f(x)))).toFixed(2)}`).join(" ");
+  return `<svg class="sales-trend-svg" viewBox="0 0 ${n} ${top}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
+}
 function renderSalesChart(notes) {
   const emitted=notes.filter(n=>n.estado!=="anulada"), now=new Date(); let buckets=[];
   if(salesPeriod==="today") buckets=Array.from({length:15},(_,i)=>{const h=i+8,group=emitted.filter(n=>new Date(n.fecha).getHours()===h);return {label:h+":00",tip:h+":00",total:group.reduce((a,n)=>a+n2(n.total),0),count:group.length};});
@@ -2442,12 +2510,15 @@ function renderSalesChart(notes) {
     if(salesPeriod==="month")start.setDate(1);
     if(salesPeriod==="all"){const dates=emitted.map(n=>new Date(n.fecha)).filter(d=>!Number.isNaN(d.getTime()));if(dates.length){start=new Date(Math.min(...dates));start.setHours(0,0,0,0);days=Math.floor((now-start)/86400000)+1;}}
     if(salesPeriod==="all"&&days>60){const map=new Map();emitted.forEach(n=>{const d=new Date(n.fecha);d.setDate(d.getDate()-(d.getDay()+6)%7);d.setHours(0,0,0,0);const k=d.toISOString().slice(0,10);if(!map.has(k))map.set(k,{date:d,total:0,count:0});const b=map.get(k);b.total+=n2(n.total);b.count++;});buckets=[...map.values()].sort((a,b)=>a.date-b.date).map(b=>({...b,label:b.date.toLocaleDateString("es",{day:"2-digit",month:"short"}),tip:b.date.toLocaleDateString("es")}));}
-    else buckets=Array.from({length:days},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);const group=emitted.filter(n=>new Date(n.fecha).toDateString()===d.toDateString()),label=days<=7||i===0||i===days-1||i%5===0?d.toLocaleDateString("es",{day:"2-digit",month:"short"}):"";return {label,tip:d.toLocaleDateString("es",{weekday:"short",day:"numeric",month:"short"}),total:group.reduce((a,n)=>a+n2(n.total),0),count:group.length};});
+    else buckets=Array.from({length:days},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);const group=emitted.filter(n=>new Date(n.fecha).toDateString()===d.toDateString()),label=days<=7||i===0||i===days-1||i%5===0?d.toLocaleDateString("es",{day:"2-digit",month:"short"}):"";return {date:d,label,tip:d.toLocaleDateString("es",{weekday:"short",day:"numeric",month:"short"}),total:group.reduce((a,n)=>a+n2(n.total),0),count:group.length};});
   }
-  const max=Math.max(0,...buckets.map(b=>b.total)), rounded=max?Math.ceil(max/10)*10:0, half=rounded/2;
+  // en "Todo" con más de 60 días las barras son semanas
+  const weekly=salesPeriod==="all"&&buckets.length>1&&buckets[1].date-buckets[0].date>3*86400000;
+  const trend=salesTrend(buckets,weekly);
+  const max=Math.max(0,...buckets.map(b=>b.total),trend?trend.max:0), rounded=max?Math.ceil(max/10)*10:0, half=rounded/2;
   const bars=buckets.map(b=>`<div class="sales-bar-col"><div class="sales-bar" style="height:${b.total&&rounded?b.total/rounded*100+"%":"2px;background:var(--line)"}" title="${esc(b.tip)}: ${money(b.total)} · ${b.count} ventas"></div></div>`).join("");
   const labels=buckets.map(b=>`<span>${esc(b.label)}</span>`).join("");
-  return `<section class="dash-card dash-wide"><div class="dash-heading"><h2>Ventas por día</h2><span class="dash-subtitle">${salesPeriod==="today"?"por hora":salesPeriod==="all"&&buckets.length>60?"por semana":"importe emitido"}</span></div>${buckets.length?`<div class="sales-chart-wrap"><div class="sales-chart"><div class="sales-axis"><span>${money(rounded)}</span><span>${money(half)}</span><span>${money(0)}</span></div><div class="sales-plot">${bars}</div></div><div class="sales-xlabels">${labels}</div></div>`:`<div class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></div>`}</section>`;
+  return `<section class="dash-card dash-wide"><div class="dash-heading"><h2>Ventas por día</h2><span class="dash-subtitle">${salesPeriod==="today"?"por hora":salesPeriod==="all"&&buckets.length>60?"por semana":"importe emitido"}</span></div>${buckets.length?`<div class="sales-chart-wrap"><div class="sales-chart" style="grid-template-columns:64px minmax(${Math.max(600,buckets.length*10)}px,1fr)"><div class="sales-axis"><span>${money(rounded)}</span><span>${money(half)}</span><span>${money(0)}</span></div><div class="sales-plot">${bars}${trend&&rounded?trendSvg(trend,buckets.length,rounded):""}</div></div><div class="sales-xlabels" style="min-width:${Math.max(600,buckets.length*10)+64}px">${labels}</div></div>${trend?`<div class="sales-legend"><span><i></i>Barras: ventas</span><span><i class="line"></i>Línea: tendencia</span></div><p class="sales-trend"><b>${esc(trend.title)}</b>${esc(trend.change)}${trend.restNote?`<small>${esc(trend.restNote)}</small>`:""}</p>`:""}`:`<div class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></div>`}</section>`;
 }
 function salesTopData(notes) {
   const products=new Map(),variants=new Map(),categories=new Map();
