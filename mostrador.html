@@ -213,6 +213,64 @@ label.f > span{letter-spacing:.02em}
   .row{grid-template-columns:minmax(0,1fr) auto}
   .row .price{grid-column:2;grid-row:1}
   .row .counter{grid-column:1 / -1;justify-self:start}
+  .row .var-toggle{grid-column:1 / -1;justify-self:start}
+}
+/* Producto con tallas y colores: una sola fila; el detalle se abre al tocar */
+.var-toggle{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:4px 10px 4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);cursor:pointer;font:inherit;font-size:13px;white-space:nowrap}
+.var-toggle:hover{border-color:var(--muted)}
+.var-toggle b{font:600 15px var(--f-mono);font-variant-numeric:tabular-nums}
+.var-toggle .muted{font-size:12px}
+.var-toggle svg{flex:none;transition:transform .15s}
+.var-toggle[aria-expanded="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.var-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.var-panel{grid-column:1 / -1;padding:10px 0 2px}
+.var-matrix-wrap{overflow-x:auto;max-width:100%}
+.var-matrix{border-collapse:separate;border-spacing:3px;min-width:max-content}
+.var-matrix th{font-size:12px;font-weight:600;color:var(--muted);padding:4px 8px;white-space:nowrap}
+.var-matrix thead th{text-align:center}
+.var-matrix tbody th{text-align:left}
+.var-matrix td{min-width:52px;height:36px;padding:0;text-align:center;border-radius:6px;background:var(--surface-2);font:600 14px var(--f-mono);font-variant-numeric:tabular-nums}
+.var-matrix td input{width:56px;height:36px;border:0;background:transparent;text-align:center;font:inherit;color:inherit;padding:0 2px;border-radius:6px}
+.var-matrix td input:focus{outline:2px solid var(--accent);outline-offset:-2px}
+.var-matrix td.low{background:var(--warn-soft);color:var(--warn)}
+.var-matrix td.out{background:var(--bad-soft);color:var(--bad)}
+.var-matrix td.none{background:transparent;color:var(--muted);font-weight:400}
+.var-matrix td.tot{background:transparent;color:var(--muted)}
+.var-legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 0 3px;font-size:12px;color:var(--muted)}
+.var-legend span{display:inline-flex;align-items:center;gap:5px}
+.var-legend i{width:10px;height:10px;border-radius:3px;background:var(--warn-soft);border:1px solid var(--warn)}
+.var-legend i.out{background:var(--bad-soft);border-color:var(--bad)}
+.var-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.var-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.sw{display:inline-block;flex:none;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:var(--sw,transparent);border:1px solid rgb(0 0 0 / .2)}
+/* Editor: tallas y colores para tocar */
+.var-pick{display:grid;gap:12px;margin-top:10px}
+.var-pick-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px;font-size:13px;font-weight:600}
+.var-sets{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.var-sets button{border:0;background:transparent;padding:4px 9px;color:var(--muted);font-size:12px;cursor:pointer}
+.var-sets button[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg)}
+.pick-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pick-chips button{min-width:40px;min-height:34px;padding:4px 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}
+.pick-chips button:hover{border-color:var(--muted)}
+.pick-chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.pick-chips button[aria-pressed="true"] .sw{border-color:#fff}
+.pick-other{display:flex;gap:6px;margin-top:6px}
+.pick-other input{flex:1;min-width:0;padding:6px 10px}
+.var-rows{display:grid;gap:6px;margin-top:4px}
+.var-edit{display:grid;grid-template-columns:minmax(0,1.3fr) 70px 88px minmax(0,1fr) 34px;gap:6px;align-items:center}
+.var-edit input{padding:6px 8px;min-width:0;width:100%}
+.var-edit .var-name{font-weight:600;font-size:13.5px;overflow-wrap:anywhere}
+.var-edit .var-loose{display:flex;gap:4px;min-width:0}
+.var-edit .x{width:34px;height:34px;padding:0;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:15px}
+.var-edit .x:hover{color:var(--bad);border-color:var(--bad)}
+.var-edit.head{font-size:11.5px;color:var(--muted);font-weight:600}
+@media (max-width:480px){
+  .var-matrix td{min-width:42px}
+  .var-matrix td input{width:44px}
+  .var-matrix th{padding:4px 4px}
+  .var-edit{grid-template-columns:70px 88px minmax(0,1fr) 34px}
+  .var-edit > :first-child{grid-column:1 / -1}
+  .var-edit.head{display:none}
 }
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px 20px;text-align:center;color:var(--muted)}
 .empty h2{color:var(--fg);margin-bottom:6px}
@@ -425,11 +483,24 @@ body{height:100dvh;overflow:hidden}
       <label class="f"><span>Stock actual</span><input type="number" id="p-stock" step="1" inputmode="decimal"></label>
       <label class="f"><span>Stock mínimo</span><input type="number" id="p-minimo" min="0" step="1" inputmode="decimal"></label>
     </div>
-    <details id="p-variations"><summary>Variaciones (opcional)</summary>
-      <div class="grid2" style="margin-top:10px"><label class="f"><span>Tallas (separadas por coma)</span><input id="p-tallas" type="text" placeholder="S, M, L, XL"></label><label class="f"><span>Colores (separados por coma)</span><input id="p-colores" type="text" placeholder="Negro, Blanco, Azul"></label></div>
-      <button type="button" class="btn" id="p-matrix" style="margin-top:8px">Generar matriz talla × color</button>
-      <div id="p-variants" style="display:grid;gap:8px;margin-top:10px"></div>
-      <button type="button" class="btn" id="p-addvariant" style="margin-top:8px">+ Variante suelta</button>
+    <details id="p-variations"><summary id="p-var-sum">Tallas y colores (opcional)</summary>
+      <div class="var-pick">
+        <div>
+          <div class="var-pick-head"><span>Tallas</span><div class="var-sets" id="p-tallaset" role="group" aria-label="Tipo de talla"></div></div>
+          <div class="pick-chips" id="p-tallas" role="group" aria-label="Tallas"></div>
+          <div class="pick-other"><input type="text" id="p-talla-otra" placeholder="Otra talla" autocomplete="off"><button type="button" class="btn" data-pick-add="talla">Agregar</button></div>
+        </div>
+        <div>
+          <div class="var-pick-head"><span>Colores</span></div>
+          <div class="pick-chips" id="p-colores" role="group" aria-label="Colores"></div>
+          <div class="pick-other"><input type="text" id="p-color-otro" placeholder="Otro color" autocomplete="off"><button type="button" class="btn" data-pick-add="color">Agregar</button></div>
+        </div>
+        <div>
+          <div class="var-edit head" id="p-var-head" hidden><span>Combinación</span><span>Stock</span><span>Precio</span><span>Código</span><span></span></div>
+          <div class="var-rows" id="p-variants"></div>
+          <button type="button" class="btn ghost" id="p-addvariant" style="margin-top:8px">+ Otra combinación a mano</button>
+        </div>
+      </div>
     </details>
     <label class="check" id="p-web-row" hidden><input type="checkbox" id="p-web"> 🌐 Mostrar en la tienda web</label>
     <label class="f"><span>Unidad</span>
@@ -883,10 +954,77 @@ function thumbHtml(p, size = "") {
 function nameHtml(p, inner) {
   return anyFoto() ? `<div class="name with-thumb">${thumbHtml(p)}<div>${inner}</div></div>` : `<div class="name">${inner}</div>`;
 }
+// --- Tallas y colores ---
+const TALLAS = {
+  Letras: ["XS", "S", "M", "L", "XL", "XXL", "3XL", "Única"],
+  Niños: ["2", "4", "6", "8", "10", "12", "14", "16"],
+  Pantalón: ["26", "28", "30", "32", "34", "36", "38", "40", "42"],
+  Calzado: ["33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44"],
+};
+const COLORES = { Negro: "#1f1f1f", Blanco: "#ffffff", Gris: "#9a9a9a", Azul: "#2f5fd0", "Azul marino": "#1d2a55", Celeste: "#8cc8f0", Rojo: "#d33a2c", Rosado: "#f2a5bd", Fucsia: "#d6338a", Morado: "#7a4cc2", Verde: "#2f9a4f", Amarillo: "#f2cc2f", Naranja: "#f08a24", Beige: "#e3d3b4", Marrón: "#7a4e2d", Plateado: "#c9cdd2", Dorado: "#cfa53a" };
+const swatch = c => { const k = Object.keys(COLORES).find(x => norm(x) === norm(c)); return `<i class="sw" style="--sw:${k ? COLORES[k] : "transparent"}"></i>`; };
+// orden natural: XS, S, M… luego números de menor a mayor, luego el resto por nombre
+function tallaKey(t) {
+  const i = TALLAS.Letras.findIndex(x => norm(x) === norm(t));
+  if (i >= 0) return [0, i, ""];
+  return isFinite(t) && String(t).trim() !== "" ? [1, Number(t), ""] : [2, 0, norm(t)];
+}
+const byTalla = (a, b) => { const x = tallaKey(a), y = tallaKey(b); return x[0] - y[0] || x[1] - y[1] || x[2].localeCompare(y[2]); };
+function byColor(a, b) {
+  const names = Object.keys(COLORES), i = names.findIndex(x => norm(x) === norm(a)), j = names.findIndex(x => norm(x) === norm(b));
+  return (i < 0 ? 99 : i) - (j < 0 ? 99 : j) || norm(a).localeCompare(norm(b));
+}
+const uniq = list => list.filter((x, i) => x && list.findIndex(y => norm(y) === norm(x)) === i);
+const openVar = new Set(); // productos con el detalle de tallas abierto en Inventario
+function varRowHtml(p, st, chip) {
+  const vs = p.variantes, open = openVar.has(p.id);
+  // avisa cuántas tallas o colores piden reposición aunque el total alcance
+  const bajas = vs.filter(v => n2(v.stock) <= n2(v.minimo ?? p.minimo)).length;
+  if (st > 0) chip = bajas ? `<span class="chip low">${bajas} por reponer</span>` : "";
+  const prices = vs.map(v => n2(v.precio ?? p.precio)), lo = Math.min(...prices), hi = Math.max(...prices);
+  return `<div class="row" data-id="${esc(p.id)}">
+    ${nameHtml(p, `<button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
+      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}<span>${vs.length} ${vs.length === 1 ? "variante" : "variantes"}</span>${chip}</div>`)}
+    <div class="price">${lo === hi ? money(lo) : `${money(lo)} – ${money(hi)}`}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
+    <button class="var-toggle" data-vtoggle="${esc(p.id)}" aria-expanded="${open}" aria-label="Ver stock por talla y color de ${esc(p.nombre)}"><b>${qty(st)}</b><span class="muted">${esc(p.unidad || "und")} · ${open ? "Ocultar" : "Ver tallas"}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    ${open ? `<div class="var-panel">${varDetailHtml(p)}</div>` : ""}
+  </div>`;
+}
+// Cuadro talla × color con el stock de cada combinación; si las variantes no forman un cuadro, una lista
+function varDetailHtml(p) {
+  const vs = p.variantes, edit = puede("stock.ajustar");
+  const state = v => { const n = n2(v.stock); return n <= 0 ? "out" : n <= n2(v.minimo ?? p.minimo) ? "low" : ""; };
+  const label = v => [v.talla, v.color].filter(Boolean).join(" / ") || "Variante";
+  const allT = vs.every(v => v.talla), noT = vs.every(v => !v.talla), allC = vs.every(v => v.color), noC = vs.every(v => !v.color);
+  const keys = vs.map(v => norm(v.talla || "") + "|" + norm(v.color || ""));
+  const legend = `<div class="var-legend"><span><i></i>Por reponer</span><span><i class="out"></i>Agotado</span>${edit ? "<span>Toca un número para cambiarlo.</span>" : ""}</div>`;
+  if ((allT || noT) && (allC || noC) && new Set(keys).size === keys.length) {
+    const ts = noT ? [""] : uniq(vs.map(v => v.talla)).sort(byTalla), cs = noC ? [""] : uniq(vs.map(v => v.color)).sort(byColor);
+    const find = (t, c) => vs.find(v => norm(v.talla || "") === norm(t) && norm(v.color || "") === norm(c));
+    const cell = (t, c) => {
+      const v = find(t, c);
+      if (!v) return `<td class="none">—</td>`;
+      const n = n2(v.stock);
+      return `<td class="${state(v)}">${edit ? `<input data-vstk="${esc(p.id)}" data-variant="${esc(v.id)}" type="number" min="0" step="1" inputmode="numeric" value="${n}" aria-label="Stock ${esc(label(v))}">` : qty(n)}</td>`;
+    };
+    const sum = list => list.reduce((a, v) => a + n2(v && v.stock), 0);
+    const totCol = ts.length > 1, totRow = cs.length > 1;
+    return `<div class="var-matrix-wrap"><table class="var-matrix">
+      <thead><tr><th></th>${ts.map(t => `<th>${t ? esc(t) : "Stock"}</th>`).join("")}${totCol ? "<th>Total</th>" : ""}</tr></thead>
+      <tbody>${cs.map(c => `<tr><th>${c ? swatch(c) + esc(c) : "Stock"}</th>${ts.map(t => cell(t, c)).join("")}${totCol ? `<td class="tot">${qty(sum(ts.map(t => find(t, c))))}</td>` : ""}</tr>`).join("")}
+      ${totRow ? `<tr><th>Total</th>${ts.map(t => `<td class="tot">${qty(sum(cs.map(c => find(t, c))))}</td>`).join("")}${totCol ? `<td class="tot">${qty(sum(vs))}</td>` : ""}</tr>` : ""}</tbody>
+    </table></div>${legend}`;
+  }
+  return `<div class="var-cards">${vs.map(v => {
+    const n = n2(v.stock), st = state(v);
+    const mark = st === "out" ? '<span class="chip out">Agotado</span>' : st === "low" ? '<span class="chip low">Reponer</span>' : "";
+    return `<div class="var-card"><span>${v.color ? swatch(v.color) : ""}${esc(label(v))} ${mark}</span>${edit ? `<div class="counter"><button data-vdec="${esc(p.id)}" data-variant="${esc(v.id)}" aria-label="Restar uno">−</button><input data-vstk="${esc(p.id)}" data-variant="${esc(v.id)}" type="number" value="${n}" aria-label="Stock ${esc(label(v))}" style="width:52px"><button data-vinc="${esc(p.id)}" data-variant="${esc(v.id)}" aria-label="Sumar uno">+</button></div>` : `<b class="num">${qty(n)}</b>`}</div>`;
+  }).join("")}</div>`;
+}
 function rowHtml(p) {
   const st = totalStock(p), mn = n2(p.minimo);
   const chip = st <= 0 ? `<span class="chip out">Agotado</span>` : st <= mn ? `<span class="chip low">Reponer</span>` : "";
-  if(p.variantes&&p.variantes.length) return `<div class="row" style="grid-template-columns:1fr auto">${nameHtml(p,`<button data-edit="${esc(p.id)}">${esc(p.nombre)}</button><div class="meta">${esc(p.categoria||"")} ${chip}</div>`)}<div class="price">${qty(st)} ${esc(p.unidad||"und")}</div><div style="grid-column:1/-1;display:grid;gap:6px">${p.variantes.map(v=>{const n=n2(v.stock), m=n2(v.minimo??p.minimo), mark=n<=0?'<span class="chip out">Agotado</span>':n<=m?'<span class="chip low">Reponer</span>':'';return puede("stock.ajustar")?`<div class="counter"><span style="min-width:120px">${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")} ${mark}</span><button data-vdec="${esc(p.id)}" data-variant="${esc(v.id)}">−</button><input data-vstk="${esc(p.id)}" data-variant="${esc(v.id)}" type="number" value="${n}" aria-label="Stock variante"><button data-vinc="${esc(p.id)}" data-variant="${esc(v.id)}">+</button></div>`:`<div>${esc([v.talla,v.color].filter(Boolean).join(" / ")||"Variante")}: ${qty(n)}</div>`}).join("")}</div></div>`;
+  if (p.variantes && p.variantes.length) return varRowHtml(p, st, chip);
   return `<div class="row" data-id="${esc(p.id)}">
     ${nameHtml(p, `<button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
       <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}${mn ? `<span>mín. ${qty(mn)}</span>` : ""}${chip}${p.ejemplo ? `<span class="chip ex">Ejemplo</span>` : ""}</div>`)}
@@ -1001,6 +1139,7 @@ document.addEventListener("click", e => {
   if (t.dataset.view) return go(t.dataset.view);
   if (t.id === "addProd") return openProduct(null);
   if (t.dataset.edit) return openProduct(t.dataset.edit);
+  if (t.dataset.vtoggle) { const id = t.dataset.vtoggle; if (openVar.has(id)) openVar.delete(id); else openVar.add(id); return renderInventario(); }
   if (t.dataset.group) { S.group = t.dataset.group; store.set("mostrador.group", S.group); return renderInventario(); }
   if (t.id === "lowOnly") { S.lowOnly = !S.lowOnly; return renderInventario(); }
   if (t.dataset.inc || t.dataset.dec) {
@@ -1181,8 +1320,7 @@ function openProduct(id) {
   $("#p-stock").value = editing ? n2(editing.stock) : "";
   $("#p-minimo").value = editing ? n2(editing.minimo) : "";
   $("#p-unidad").value = editing ? editing.unidad || "und" : "und";
-  $("#p-tallas").value=""; $("#p-colores").value=""; $("#p-variants").innerHTML="";
-  if(editing&&editing.variantes&&editing.variantes.length){$("#p-variations").open=true;editing.variantes.forEach(addVariantEditor);}else $("#p-variations").open=false;
+  openVariantEditor(editing);
   editFoto = editing && fotoOk(editing) ? editing.foto : "";
   showFoto();
   $("#p-web-row").hidden = !webVinculada();
@@ -1194,10 +1332,120 @@ function openProduct(id) {
   dlg.showModal();
   setTimeout(() => $("#p-nombre").focus(), 30);
 }
-function addVariantEditor(v={}){const id=v.id||uid(),row=document.createElement("div");row.className="grid3";row.dataset.variantRow="";row.dataset.variantId=id;row.innerHTML=`<label class="f"><span>Talla</span><input data-vfield="talla" value="${esc(v.talla||"")}"></label><label class="f"><span>Color</span><input data-vfield="color" value="${esc(v.color||"")}"></label><label class="f"><span>Stock</span><input data-vfield="stock" type="number" value="${n2(v.stock)}"></label><label class="f"><span>Código (opcional)</span><input data-vfield="codigo" value="${esc(v.codigo||"")}"></label><label class="f"><span>Precio (opcional)</span><input data-vfield="precio" type="number" step="0.01" value="${v.precio==null?"":n2(v.precio)}"></label><button type="button" class="btn danger" data-rmvariant>Quitar</button>`;$("#p-variants").append(row);}
-$("#p-matrix").onclick=()=>{const ts=$("#p-tallas").value.split(",").map(x=>x.trim()).filter(Boolean),cs=$("#p-colores").value.split(",").map(x=>x.trim()).filter(Boolean);if(!ts.length){toast("Escribe al menos una talla");return;}$("#p-variants").innerHTML="";for(const talla of ts)for(const color of(cs.length?cs:[""]))addVariantEditor({talla,color,stock:0});};
-$("#p-addvariant").onclick=()=>addVariantEditor();
-$("#p-variants").addEventListener("click",e=>{if(e.target.closest("[data-rmvariant]"))e.target.closest("[data-variant-row]").remove();});
+// Tallas y colores del producto que se edita: se eligen tocando; cada combinación es una fila con su stock
+const pick = { tallas: [], colores: [], set: "Letras", skip: new Set() };
+const comboKey = (t, c) => norm(t || "") + "|" + norm(c || "");
+function openVariantEditor(p) {
+  const vs = (p && p.variantes) || [];
+  pick.tallas = uniq(vs.map(v => v.talla));
+  pick.colores = uniq(vs.map(v => v.color));
+  pick.skip = new Set();
+  // abre el grupo de tallas que más coincide con las del producto
+  const [best, hits] = Object.keys(TALLAS).map(k => [k, pick.tallas.filter(t => TALLAS[k].some(x => norm(x) === norm(t))).length]).sort((a, b) => b[1] - a[1])[0];
+  pick.set = hits ? best : "Letras";
+  $("#p-talla-otra").value = ""; $("#p-color-otro").value = "";
+  $("#p-variants").innerHTML = "";
+  vs.forEach(v => addVariantEditor(v, true));
+  // una combinación que no sale de cruzar las tallas y colores elegidos se trata como hecha a mano
+  const all = new Set(combos().map(([t, c]) => comboKey(t, c)));
+  const rows = [...$("#p-variants").querySelectorAll("[data-variant-row]")], have = new Set(rows.map(r => comboKey(rowVal(r, "talla"), rowVal(r, "color"))));
+  rows.forEach(r => { if (!all.has(comboKey(rowVal(r, "talla"), rowVal(r, "color")))) setLoose(r); });
+  // las combinaciones que el producto no tiene no se agregan solas al tocar otra talla o color
+  all.forEach(k => { if (!have.has(k)) pick.skip.add(k); });
+  $("#p-variations").open = vs.length > 0;
+  renderPick();
+}
+const rowVal = (r, k) => r.querySelector(`[data-vfield="${k}"]`).value.trim();
+function combos() {
+  const ts = pick.tallas.length ? pick.tallas : [""], cs = pick.colores.length ? pick.colores : [""];
+  return pick.tallas.length || pick.colores.length ? ts.flatMap(t => cs.map(c => [t, c])) : [];
+}
+function renderPick() {
+  // las tallas y colores propios (no de la lista) que se usaron en cualquier producto también aparecen para tocar
+  const usadasT = uniq([...pick.tallas, ...S.products.flatMap(p => (p.variantes || []).map(v => v.talla))]).filter(t => !Object.values(TALLAS).flat().some(x => norm(x) === norm(t)));
+  const usadasC = uniq([...pick.colores, ...S.products.flatMap(p => (p.variantes || []).map(v => v.color))]).filter(c => !Object.keys(COLORES).some(x => norm(x) === norm(c)));
+  const on = (list, x) => list.some(y => norm(y) === norm(x));
+  const chip = (kind, x, list, pre = "") => `<button type="button" data-pick="${kind}" data-value="${esc(x)}" aria-pressed="${on(list, x)}">${pre}${esc(x)}</button>`;
+  const fuera = pick.tallas.filter(t => !on(TALLAS[pick.set], t) && !on(usadasT, t)); // elegidas de otro grupo: siguen a la vista
+  $("#p-tallaset").innerHTML = Object.keys(TALLAS).map(k => `<button type="button" data-tallaset="${esc(k)}" aria-pressed="${k === pick.set}">${esc(k)}</button>`).join("");
+  $("#p-tallas").innerHTML = uniq([...TALLAS[pick.set], ...fuera, ...usadasT]).sort(byTalla).map(t => chip("talla", t, pick.tallas)).join("");
+  $("#p-colores").innerHTML = [...Object.keys(COLORES), ...usadasC].map(c => chip("color", c, pick.colores, swatch(c))).join("");
+  updateVariantSummary();
+}
+function updateVariantSummary() {
+  const rows = $("#p-variants").querySelectorAll("[data-variant-row]");
+  $("#p-var-head").hidden = !rows.length;
+  $("#p-var-sum").textContent = rows.length ? `Tallas y colores · ${rows.length} ${rows.length === 1 ? "combinación" : "combinaciones"}` : "Tallas y colores (opcional)";
+  // con variantes, el stock del producto es la suma de todas
+  const stock = $("#p-stock");
+  stock.readOnly = rows.length > 0;
+  stock.title = rows.length ? "Es la suma del stock de cada talla y color" : "";
+  if (rows.length) stock.value = [...rows].reduce((a, r) => a + n2(rowVal(r, "stock")), 0);
+}
+// agrega las combinaciones nuevas, quita las de tallas o colores desmarcados y ordena la lista
+function syncVariantRows() {
+  const box = $("#p-variants"), want = combos().filter(([t, c]) => !pick.skip.has(comboKey(t, c)));
+  const wantKeys = new Set(want.map(([t, c]) => comboKey(t, c)));
+  let perdido = 0;
+  box.querySelectorAll("[data-variant-row]:not([data-loose])").forEach(r => {
+    if (!wantKeys.has(comboKey(rowVal(r, "talla"), rowVal(r, "color")))) { if (n2(rowVal(r, "stock"))) perdido++; r.remove(); }
+  });
+  const have = new Set([...box.querySelectorAll("[data-variant-row]")].map(r => comboKey(rowVal(r, "talla"), rowVal(r, "color"))));
+  want.forEach(([talla, color]) => { if (!have.has(comboKey(talla, color))) addVariantEditor({ talla, color, stock: 0 }, true); });
+  [...box.querySelectorAll("[data-variant-row]:not([data-loose])")]
+    .sort((a, b) => byTalla(rowVal(a, "talla"), rowVal(b, "talla")) || byColor(rowVal(a, "color"), rowVal(b, "color")))
+    .forEach(r => box.append(r));
+  box.querySelectorAll("[data-loose]").forEach(r => box.append(r));
+  if (perdido) toast("Se quitaron combinaciones que tenían stock. Si fue un error, toca Cancelar.");
+  updateVariantSummary();
+}
+function setLoose(row) {
+  const t = rowVal(row, "talla"), c = rowVal(row, "color");
+  row.dataset.loose = "";
+  row.firstElementChild.outerHTML = `<div class="var-loose"><input data-vfield="talla" value="${esc(t)}" placeholder="Talla" aria-label="Talla"><input data-vfield="color" value="${esc(c)}" placeholder="Color" aria-label="Color"></div>`;
+}
+function addVariantEditor(v = {}, auto = false) {
+  const row = document.createElement("div");
+  row.className = "var-edit";
+  row.dataset.variantRow = "";
+  row.dataset.variantId = v.id || uid();
+  const name = [v.talla, v.color].filter(Boolean).join(" / ");
+  row.innerHTML = `<div class="var-name">${v.color ? swatch(v.color) : ""}${esc(name)}<input type="hidden" data-vfield="talla" value="${esc(v.talla || "")}"><input type="hidden" data-vfield="color" value="${esc(v.color || "")}"></div>
+    <input data-vfield="stock" type="number" min="0" step="1" inputmode="numeric" value="${n2(v.stock)}" aria-label="Stock ${esc(name)}">
+    <input data-vfield="precio" type="number" min="0" step="0.01" inputmode="decimal" value="${v.precio == null ? "" : n2(v.precio)}" placeholder="Igual" aria-label="Precio ${esc(name)} (vacío = precio del producto)">
+    <input data-vfield="codigo" value="${esc(v.codigo || "")}" placeholder="Opcional" aria-label="Código ${esc(name)}">
+    <button type="button" class="x" data-rmvariant aria-label="Quitar ${esc(name || "combinación")}">✕</button>`;
+  $("#p-variants").append(row);
+  if (!auto) { setLoose(row); row.querySelector("input").focus(); }
+}
+document.getElementById("pform").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.tallaset) { pick.set = b.dataset.tallaset; return renderPick(); }
+  if (b.dataset.pick) {
+    const list = b.dataset.pick === "talla" ? pick.tallas : pick.colores, x = b.dataset.value, i = list.findIndex(y => norm(y) === norm(x));
+    if (i >= 0) list.splice(i, 1); else list.push(x);
+    pick.skip = new Set([...pick.skip].filter(k => !k.split("|").includes(norm(x))));
+    syncVariantRows(); return renderPick();
+  }
+  if (b.dataset.pickAdd) {
+    const inp = b.dataset.pickAdd === "talla" ? $("#p-talla-otra") : $("#p-color-otro"), x = inp.value.trim(), list = b.dataset.pickAdd === "talla" ? pick.tallas : pick.colores;
+    if (!x) return inp.focus();
+    if (!list.some(y => norm(y) === norm(x))) list.push(x);
+    inp.value = "";
+    syncVariantRows(); return renderPick();
+  }
+});
+["#p-talla-otra", "#p-color-otro"].forEach(sel => $(sel).addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); e.target.nextElementSibling.click(); }
+}));
+$("#p-addvariant").onclick = () => { addVariantEditor(); updateVariantSummary(); };
+$("#p-variants").addEventListener("click", e => {
+  const row = e.target.closest("[data-rmvariant]") && e.target.closest("[data-variant-row]"); if (!row) return;
+  // una combinación quitada a mano no vuelve a aparecer al tocar otra talla o color
+  if (!("loose" in row.dataset)) pick.skip.add(comboKey(rowVal(row, "talla"), rowVal(row, "color")));
+  row.remove(); updateVariantSummary();
+});
+$("#p-variants").addEventListener("input", e => { if (e.target.dataset.vfield === "stock") updateVariantSummary(); });
 function showSimilar() {
   const box = $("#p-similar");
   const sims = mostSimilar($("#p-nombre").value, editing && editing.id);
@@ -1260,7 +1508,7 @@ $("#pform").addEventListener("submit", async e => {
     precio: n2($("#p-precio").value), stock: n2($("#p-stock").value), minimo: n2($("#p-minimo").value),
     unidad: $("#p-unidad").value, actualizado: new Date().toISOString(),
   };
-  const variants=[...$("#p-variants").querySelectorAll("[data-variant-row]")].map(r=>{const get=k=>r.querySelector(`[data-vfield="${k}"]`).value;const v={id:r.dataset.variantId,talla:get("talla").trim(),color:get("color").trim(),stock:n2(get("stock"))};if(get("codigo").trim())v.codigo=get("codigo").trim();if(get("precio")!=="")v.precio=n2(get("precio"));return v;});
+  const variants=[...$("#p-variants").querySelectorAll("[data-variant-row]")].map(r=>{const get=k=>r.querySelector(`[data-vfield="${k}"]`).value;const v={id:r.dataset.variantId,talla:get("talla").trim(),color:get("color").trim(),stock:n2(get("stock"))};if(get("codigo").trim())v.codigo=get("codigo").trim();if(get("precio")!=="")v.precio=n2(get("precio"));return v;}).filter(v=>v.talla||v.color);
   if(variants.length){p.variantes=variants;p.stock=variants.reduce((a,v)=>a+n2(v.stock),0);}else delete p.variantes;
   if (editFoto) p.foto = editFoto; else delete p.foto;
   if (!editing) p.creado = p.actualizado;
