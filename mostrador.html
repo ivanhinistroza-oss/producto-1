@@ -255,7 +255,11 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
 .chip.out{background:var(--bad-soft);color:var(--bad)}
 .chip.ex{background:var(--accent-soft);color:var(--fg)}
 .list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 16px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 120px 176px 104px;gap:6px 16px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
+.row.head{padding-block:7px;background:var(--surface-2);font-size:12px;font-weight:600;color:var(--muted)}
+.row.head .r{text-align:right}
+.row .estado{display:flex;justify-content:flex-start;min-width:0}
+.row .estado .chip{white-space:nowrap}
 .row:first-child{border-top:0}
 .row .name{min-width:0}
 .row .name button{all:unset;cursor:pointer;font-weight:600;overflow-wrap:anywhere}
@@ -277,14 +281,17 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
 .counter button:hover{border-color:var(--muted)}
 .counter input{width:64px;text-align:center;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:600;padding:6px 4px}
 .counter .u{font-size:12px;color:var(--muted);margin-left:4px;min-width:24px}
+.counter > span:not(.u){min-width:64px;text-align:center;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:600}
 @media (max-width:620px){
   .row{grid-template-columns:minmax(0,1fr) auto}
+  .row.head{display:none}
   .row .price{grid-column:2;grid-row:1}
-  .row .counter{grid-column:1 / -1;justify-self:start}
-  .row .var-toggle{grid-column:1 / -1;justify-self:start}
+  .row .counter{grid-column:1;justify-self:start}
+  .row .var-toggle{grid-column:1;justify-self:start;width:auto}
+  .row .estado{grid-column:2;justify-content:flex-end}
 }
 /* Producto con tallas y colores: una sola fila; el detalle se abre al tocar */
-.var-toggle{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:4px 10px 4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);cursor:pointer;font:inherit;font-size:13px;white-space:nowrap}
+.var-toggle{display:inline-flex;align-items:center;justify-content:space-between;width:100%;gap:8px;min-height:36px;padding:4px 10px 4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);cursor:pointer;font:inherit;font-size:13px;white-space:nowrap}
 .var-toggle:hover{border-color:var(--muted)}
 .var-toggle b{font:600 15px var(--f-mono);font-variant-numeric:tabular-nums}
 .var-toggle .muted{font-size:12px}
@@ -1059,7 +1066,7 @@ function renderInventario() {
         groups.map(g => `
           <div class="group">
             <div class="group-head"><h2 ${g.quiet ? 'class="muted"' : ""}>${esc(g.label)}</h2><span class="count">${g.items.length} ${g.items.length === 1 ? "producto" : "productos"}</span></div>
-            <div class="list">${g.items.map(rowHtml).join("")}</div>
+            <div class="list"><div class="row head" aria-hidden="true"><span>Producto</span><span class="r">Precio</span><span>Stock</span><span>Estado</span></div>${g.items.map(rowHtml).join("")}</div>
           </div>`).join("")}
     </div>
     </div>`;
@@ -1104,9 +1111,10 @@ function varRowHtml(p, st, chip) {
   const prices = vs.map(v => n2(v.precio ?? p.precio)), lo = Math.min(...prices), hi = Math.max(...prices);
   return `<div class="row" data-id="${esc(p.id)}">
     ${nameHtml(p, `<button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
-      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}<span>${vs.length} ${vs.length === 1 ? "variante" : "variantes"}</span>${chip}</div>`)}
-    <div class="price">${lo === hi ? money(lo) : `${money(lo)} – ${money(hi)}`}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
+      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}<span>${vs.length} ${vs.length === 1 ? "variante" : "variantes"}</span></div>`)}
+    <div class="price">${lo === hi ? money(lo) : `<span style="white-space:nowrap">${money(lo)} –</span> <span style="white-space:nowrap">${money(hi)}</span>`}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
     <button class="var-toggle" data-vtoggle="${esc(p.id)}" aria-expanded="${open}" aria-label="Ver stock por talla y color de ${esc(p.nombre)}"><b>${qty(st)}</b><span class="muted">${esc(p.unidad || "und")} · ${open ? "Ocultar" : "Ver tallas"}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="estado">${chip}</div>
     ${open ? `<div class="var-panel">${varDetailHtml(p)}</div>` : ""}
   </div>`;
 }
@@ -1147,7 +1155,7 @@ function rowHtml(p) {
   if (p.variantes && p.variantes.length) return varRowHtml(p, st, chip);
   return `<div class="row" data-id="${esc(p.id)}">
     ${nameHtml(p, `<button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
-      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}${mn ? `<span>mín. ${qty(mn)}</span>` : ""}${chip}${p.ejemplo ? `<span class="chip ex">Ejemplo</span>` : ""}</div>`)}
+      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}${mn ? `<span>mín. ${qty(mn)}</span>` : ""}${p.ejemplo ? `<span class="chip ex">Ejemplo</span>` : ""}</div>`)}
     <div class="price">${money(p.precio)}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
     <div class="counter">
       ${puede("stock.ajustar") ? `      <button data-dec="${esc(p.id)}" aria-label="Restar uno a ${esc(p.nombre)}">−</button>` : ""}
@@ -1155,6 +1163,7 @@ function rowHtml(p) {
       ${puede("stock.ajustar")?`<button data-inc="${esc(p.id)}" aria-label="Sumar uno a ${esc(p.nombre)}">+</button>`:""}
       <span class="u">${esc(p.unidad || "und")}</span>
     </div>
+    <div class="estado">${chip}</div>
   </div>`;
 }
 
