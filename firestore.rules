@@ -49,6 +49,25 @@ service cloud.firestore {
       }
     }
 
+    // tienda web (productos, precios, fotos): cualquiera la ve; solo el administrador la cambia
+    match /web/{nid} {
+      allow get: if true;
+      // solo los campos que guarda admin.html; no se borra (para ocultarla, activa = false)
+      allow create, update: if admin(nid)
+        && request.resource.data.keys().hasOnly(['activa', 'negocio', 'json', 'actualizado'])
+        && request.resource.data.activa is bool
+        && request.resource.data.negocio is string
+        && request.resource.data.json is string;
+      match /fotos/{fid} {
+        allow get: if true;
+        allow create, update: if admin(nid)
+          && request.resource.data.keys().hasOnly(['data', 'creado'])
+          && request.resource.data.data is string
+          && request.resource.data.data.matches('data:image/.*');
+        allow delete: if admin(nid);
+      }
+    }
+
     match /negocios/{nid} {
       allow read: if miembro(nid);
       allow create: if signedIn() && request.resource.data.dueno == request.auth.uid;
@@ -96,6 +115,18 @@ service cloud.firestore {
         allow read: if miembro(nid);
         allow create: if admin(nid) || (miembro(nid) && request.resource.data.vendedorId == request.auth.uid);
         allow update: if admin(nid) || (miembro(nid) && soloCambia(['estado', 'notaId', 'notaFolio']) && request.resource.data.estado == 'vendida');
+        allow delete: if admin(nid);
+      }
+
+      // caja: todos la abren y la cierran; un cierre ya guardado solo lo cambia el administrador
+      match /cajas/{id} {
+        allow read: if miembro(nid);
+        allow create: if admin(nid)
+          || (miembro(nid) && request.resource.data.estado == 'abierta' && request.resource.data.abiertaPorId == request.auth.uid);
+        allow update: if admin(nid)
+          || (miembro(nid) && resource.data.estado == 'abierta' && request.resource.data.estado == 'cerrada'
+            && request.resource.data.cerradaPorId == request.auth.uid
+            && soloCambia(['estado', 'cerradaEn', 'cerradaPorId', 'cerradaPorNombre', 'contado', 'diferencia', 'esperado', 'efectivo', 'ventasTotal', 'ventasCount', 'anuladas', 'pagos', 'obsCierre']));
         allow delete: if admin(nid);
       }
 
