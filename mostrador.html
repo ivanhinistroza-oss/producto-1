@@ -21,15 +21,19 @@
   --f-body:"Public Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
   --r:10px;
+  /* gráficos: colores fijos por serie; --c-prev es el mismo azul más suave para el período con que se compara */
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c-prev:#86b6ef; --c-otro:#9a9993; --up:#006300;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#111816; --surface:#18221f; --surface-2:#22302b; --line:#2f3f39;
   --fg:#e3ece8; --muted:#97aaa2; --accent:#4cc3ad; --accent-fg:#06221c; --accent-soft:#183d36;
-  --warn:#f0b462; --warn-soft:#3a2a12; --bad:#f2958e; --bad-soft:#3d1a18; --paper:#1f2624; --paper-ink:#e8e6df; color-scheme:dark}}
+  --warn:#f0b462; --warn-soft:#3a2a12; --bad:#f2958e; --bad-soft:#3d1a18; --paper:#1f2624; --paper-ink:#e8e6df; color-scheme:dark;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c-prev:#184f95; --c-otro:#6f6e69; --up:#0ca30c}}
 :root[data-theme="dark"]{
   --bg:#111816; --surface:#18221f; --surface-2:#22302b; --line:#2f3f39;
   --fg:#e3ece8; --muted:#97aaa2; --accent:#4cc3ad; --accent-fg:#06221c; --accent-soft:#183d36;
-  --warn:#f0b462; --warn-soft:#3a2a12; --bad:#f2958e; --bad-soft:#3d1a18; --paper:#1f2624; --paper-ink:#e8e6df; color-scheme:dark}
+  --warn:#f0b462; --warn-soft:#3a2a12; --bad:#f2958e; --bad-soft:#3d1a18; --paper:#1f2624; --paper-ink:#e8e6df; color-scheme:dark;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c-prev:#184f95; --c-otro:#6f6e69; --up:#0ca30c}
 
 *{box-sizing:border-box}
 /* fuera de claude.ai no hay reset: sin esto, .btn{display:inline-flex} mostraría botones ocultos por permisos */
@@ -84,8 +88,14 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .sales-chart{position:relative;display:grid;grid-template-columns:64px minmax(600px,1fr);min-height:230px}
 .sales-axis{display:flex;flex-direction:column;justify-content:space-between;padding:0 6px 24px 0;color:var(--muted);font:11px var(--f-mono);text-align:right;white-space:nowrap}
 .sales-plot{position:relative;display:flex;align-items:stretch;height:206px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(to top,transparent 0,transparent calc(50% - .5px),var(--line) calc(50% - .5px),var(--line) 50%,transparent 50%,transparent calc(100% - 1px),var(--line) calc(100% - 1px),var(--line) 100%)}
-.sales-bar-col{position:relative;flex:1;min-width:10px;padding:0 1.5px;display:flex;align-items:flex-end;justify-content:center}
-.sales-bar{width:min(72%,24px);min-height:2px;background:var(--accent);border-radius:4px 4px 0 0}
+.sales-bar-col{position:relative;flex:1;min-width:10px;border-radius:4px 4px 0 0}
+.sales-bar-col:hover{background:var(--surface-2)}
+.sales-bar{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:min(72%,24px);background:var(--c1);border-radius:4px 4px 0 0}
+.sales-bar.zero{height:2px;background:var(--line);border-radius:0}
+.sales-bar.prev{background:var(--c-prev);width:min(84%,28px)}
+/* comparando: la barra actual va delante, más angosta, con un borde del color del fondo para separarla */
+.sales-chart.compara .sales-bar:not(.prev){width:min(46%,15px);box-shadow:0 0 0 2px var(--surface);clip-path:inset(-2px -2px 0 -2px)}
+.sales-chart.compara .sales-bar.zero{box-shadow:none}
 .sales-xlabels{display:flex;padding-left:64px;min-width:664px}
 .sales-xlabels span{flex:1;min-width:10px;text-align:center;font-size:10px;color:var(--muted);white-space:nowrap}
 .sales-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -98,17 +108,56 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .sales-empty{padding:16px;color:var(--muted);text-align:center}
 /* Curva de tendencia (parábola) encima de las barras */
 .sales-trend-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
-.sales-trend-svg path{fill:none;stroke:var(--warn);stroke-width:2.5;stroke-dasharray:7 5;stroke-linecap:round}
-.sales-trend{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--warn-soft);font-size:14px}
+.sales-trend-svg path{fill:none;stroke:var(--fg);opacity:.6;stroke-width:2;stroke-dasharray:6 4;stroke-linecap:round}
+.sales-trend{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--surface-2);font-size:14px}
 .sales-trend b{display:block;margin-bottom:2px}
 .sales-trend small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px}
 .sales-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12px;color:var(--muted)}
 .sales-legend span{display:inline-flex;align-items:center;gap:6px}
-.sales-legend i{display:inline-block;width:14px;height:10px;border-radius:2px;background:var(--accent)}
-.sales-legend i.line{height:0;border-top:2.5px dashed var(--warn);border-radius:0;background:none}
+.sales-legend i{display:inline-block;width:14px;height:10px;border-radius:2px;background:var(--c1)}
+.sales-legend i.prev{background:var(--c-prev)}
+.sales-legend i.line{height:0;border-top:2px dashed var(--fg);opacity:.6;border-radius:0;background:none}
 .sales-top-toggle{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-left:8px;vertical-align:middle}
 .sales-top-toggle button{border:0;background:transparent;padding:4px 7px;color:var(--muted);font-size:11px;cursor:pointer}
 .sales-top-toggle button[aria-pressed="true"]{background:var(--accent-soft);color:var(--fg)}
+.sales-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sales-head .sales-top-toggle{margin-left:0}
+.sales-legend-top{margin:0 0 10px}
+.sales-note{margin:8px 0 0;font-size:13px}
+.sales-compare{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:12px 0 0;font-size:13px;color:var(--muted)}
+.sales-compare .seg button{padding:7px 10px}
+.seg button:disabled{opacity:.45;cursor:default}
+.delta{font-weight:600;white-space:nowrap}
+.delta.up{color:var(--up)}
+.delta.down{color:var(--bad)}
+.delta.new{color:var(--muted);font-weight:500}
+.bar.s1{background:var(--c1)}
+.bar-row[data-tip]:hover .bar-label{color:var(--fg)}
+.sales-pair > :only-child{grid-column:1/-1}
+.sales-pair:empty{display:none}
+.wk-chart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;align-items:end;height:150px;border-bottom:1px solid var(--line)}
+.wk-col{display:flex;align-items:flex-end;justify-content:center;gap:2px;height:100%;border-radius:4px 4px 0 0}
+.wk-col:hover{background:var(--surface-2)}
+.wk-col i{display:block;width:min(56%,28px);background:var(--c1);border-radius:4px 4px 0 0}
+.wk-col.compara i{width:min(40%,18px)}
+.wk-col i.prev{background:var(--c-prev)}
+.wk-col i.zero{height:2px;background:var(--line);border-radius:0}
+.wk-labels{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:5px;font-size:11.5px;color:var(--muted);text-align:center}
+.pay-stack{display:flex;gap:2px;height:16px;margin:2px 0 14px}
+.pay-stack span{min-width:4px;border-radius:2px}
+.pay-stack span:first-child{border-radius:4px 2px 2px 4px}
+.pay-stack span:last-child{border-radius:2px 4px 4px 2px}
+.pay-stack span:only-child{border-radius:4px}
+.pay-wrap{overflow-x:auto}
+@media (max-width:480px){.pay-table .notas{display:none}}
+.pay-table{width:100%;border-collapse:collapse;font-size:13px}
+.pay-table th,.pay-table td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.pay-table th{font-size:12px;font-weight:600;color:var(--muted)}
+.pay-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.pay-table tbody tr:last-child td{border-bottom:0}
+.pay-table tbody tr:hover{background:var(--surface-2)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;vertical-align:-1px}
+.chart-tip{position:fixed;z-index:60;pointer-events:none;max-width:280px;background:var(--fg);color:var(--bg);font-size:12.5px;line-height:1.45;padding:7px 10px;border-radius:8px;white-space:pre-line;box-shadow:0 4px 14px rgb(0 0 0 / .2)}
 .table-stock{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px}
 .table-stock-bar{width:60px;height:6px;border-radius:4px;background:var(--accent);opacity:.35;flex:none}
 .variant-detail{padding:5px 10px 9px 28px!important;color:var(--muted);font-size:13px}
@@ -3792,52 +3841,216 @@ $("#v-resumen").addEventListener("input",e=>{if(e.target.id==="summarySearch"){s
 $("#v-resumen").addEventListener("click",e=>{if(e.target.closest("#summaryAlertsToggle")){summaryAlertsExpanded=!summaryAlertsExpanded;return renderResumen();}const b=e.target.closest("[data-sort]");if(!b)return;if(summarySort===b.dataset.sort)summaryDir*=-1;else{summarySort=b.dataset.sort;summaryDir=1;}renderResumen();});
 // ---------- ventas ----------
 let salesPeriod = store.get("mostrador.salesPeriod") || "30d";
+let salesCompare = store.get("mostrador.salesCompare") || "prev"; // prev | year | none
+let salesMetric = "total"; // total (importe) | count (número de ventas)
 let salesTopMode = "units", salesQ = "", salesSort = "fecha", salesDir = -1, salesLimit = 25;
 const salesPeriods = [["today", "Hoy"], ["7d", "7 días"], ["30d", "30 días"], ["month", "Este mes"], ["all", "Todo"]];
-function salesInPeriod() {
-  const now = new Date(), start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (salesPeriod === "7d") start.setDate(start.getDate() - 6);
-  if (salesPeriod === "30d") start.setDate(start.getDate() - 29);
-  if (salesPeriod === "month") start.setDate(1);
-  if (salesPeriod === "all") return [...S.notes];
-  return S.notes.filter(n => { const d = new Date(n.fecha); return !Number.isNaN(d.getTime()) && d >= start && d <= now; });
-}
-// la fecha más antigua que usa Ventas: el período y el anterior, con el que se compara
-function salesDesde() {
+const salesCompares = [["prev", "Período anterior"], ["year", "Año pasado"], ["none", "Sin comparar"]];
+const DIA_MS = 86400000;
+const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const enRango = (n, r) => { const d = new Date(n.fecha); return !Number.isNaN(d.getTime()) && d >= r.start && d <= r.end; };
+// el período elegido va desde su primer día hasta este momento
+function salesRange() {
   if (salesPeriod === "all") return null;
-  const hoy = new Date(), inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const dias = salesPeriod === "7d" ? 7 : salesPeriod === "30d" ? 30 : salesPeriod === "month" ? hoy.getDate() : 1;
-  inicio.setDate(inicio.getDate() - dias * 2 + 1);
-  return inicio;
+  const now = new Date(), hoy = dayStart(now);
+  const start = salesPeriod === "7d" ? addDays(hoy, -6) : salesPeriod === "30d" ? addDays(hoy, -29)
+    : salesPeriod === "month" ? new Date(hoy.getFullYear(), hoy.getMonth(), 1) : hoy;
+  return { start, end: now, days: Math.round((hoy - start) / DIA_MS) + 1 };
+}
+// período con el que se compara: mismo largo y hasta el mismo momento (por ejemplo, ayer hasta esta hora),
+// para no comparar un día a medias contra uno completo
+function salesCompareRange() {
+  const r = salesRange();
+  if (!r || salesCompare === "none") return null;
+  let start;
+  if (salesCompare === "year") { start = new Date(r.start); start.setFullYear(start.getFullYear() - 1); }
+  else if (salesPeriod === "month") start = new Date(r.start.getFullYear(), r.start.getMonth() - 1, 1);
+  else start = addDays(r.start, -r.days);
+  let end = new Date(start.getTime() + (r.end - r.start));
+  // un mes anterior más corto (febrero) no se mete en el mes siguiente
+  if (salesPeriod === "month" && salesCompare === "prev") end = new Date(Math.min(end, new Date(start.getFullYear(), start.getMonth() + 1, 1) - 1));
+  const corto = salesCompare === "year" ? "Año pasado" : salesPeriod === "today" ? "Ayer" : salesPeriod === "month" ? "Mes anterior" : "Período anterior";
+  return { start, end, days: r.days, corto };
+}
+function salesInPeriod() {
+  const r = salesRange();
+  return r ? S.notes.filter(n => enRango(n, r)) : [...S.notes];
+}
+// la fecha más antigua que necesita Ventas con las notas que escucha el equipo (el año pasado se pide aparte)
+function salesDesde() {
+  const r = salesRange();
+  if (!r) return null;
+  const cr = salesCompare === "prev" ? salesCompareRange() : null;
+  return cr ? cr.start : r.start;
+}
+// notas del período de comparación; si quedan antes de lo que escucha el equipo, se piden una sola vez por días completos
+const salesRangoCache = new Map();
+function salesCompareNotes(cr) {
+  if (!cr) return null;
+  if (!db || !db.notesRango || !notasDesde || cr.start.toISOString() >= notasDesde) return S.notes.filter(n => enRango(n, cr));
+  const a = dayStart(cr.start).toISOString(), b = addDays(dayStart(cr.end), 1).toISOString(), key = a + "|" + b;
+  let e = salesRangoCache.get(key);
+  if (!e) {
+    e = { notes: null, error: false };
+    salesRangoCache.set(key, e);
+    db.notesRango(a, b).then(docs => { e.notes = docs; }).catch(() => { e.error = true; salesRangoCache.delete(key); })
+      .then(() => { if (S.view === "ventas") renderVentas(); });
+  }
+  return e.notes ? e.notes.filter(n => enRango(n, cr)) : e.error ? "error" : "loading";
 }
 function salesMetrics(notes) {
   const valid = notes.filter(n => n.estado !== "anulada");
-  return { total: valid.reduce((a,n) => a + n2(n.total),0), count: valid.length, units: valid.reduce((a,n) => a + n.items.reduce((b,i) => b+itemUnits(i),0),0) };
+  const total = valid.reduce((a, n) => a + n2(n.total), 0);
+  return { total, count: valid.length, average: valid.length ? total / valid.length : 0, units: valid.reduce((a, n) => a + n.items.reduce((b, i) => b + itemUnits(i), 0), 0) };
 }
-function salesPreviousPeriod() {
-  const now = new Date(), end = new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const days = salesPeriod === "7d" ? 7 : salesPeriod === "30d" ? 30 : salesPeriod === "month" ? end.getDate() : 0;
-  if (!days) return null;
-  const priorEnd = new Date(end); priorEnd.setDate(priorEnd.getDate()-days);
-  priorEnd.setHours(23, 59, 59, 999);
-  const priorStart = new Date(end); priorStart.setDate(priorStart.getDate()-days*2+1);
-  return S.notes.filter(n => { const d=new Date(n.fecha); return d>=priorStart && d<=priorEnd; });
+// cambio porcentual con flecha; el color lo da la clase (verde sube, rojo baja) y la flecha lo dice sin color
+function salesDelta(a, b) {
+  if (!b) return a ? { cls: "new", txt: "nuevo" } : null;
+  const p = Math.round((a - b) / b * 100);
+  return { cls: p > 0 ? "up" : p < 0 ? "down" : "", txt: (p > 0 ? "▲ " : p < 0 ? "▼ " : "= ") + Math.abs(p) + " %" };
 }
-function salesKpis(notes) {
-  const current=salesMetrics(notes), priorNotes=salesPreviousPeriod(), prior=priorNotes&&salesMetrics(priorNotes);
-  current.average=current.count?current.total/current.count:0;
-  if(prior)prior.average=prior.count?prior.total/prior.count:0;
-  const versus=salesPeriod === "7d" ? "vs. 7 días anteriores" : salesPeriod === "30d" ? "vs. 30 días anteriores" : "vs. el mes anterior";
-  const context=key=>{
-    if(!prior)return "sin período anterior";
-    // sin ventas antes no hay porcentaje que calcular
-    if(!prior[key])return current[key]?`sin ventas antes · ${versus}`:"sin período anterior";
-    const pct=Math.round(Math.abs((current[key]-prior[key])/prior[key])*100);
-    const arrow=current[key]>prior[key]?"▲":current[key]<prior[key]?"▼":"=";
-    return `${arrow} ${pct} % ${versus}`;
+const deltaHtml = (a, b) => { const d = salesDelta(a, b); return d ? `<span class="delta ${d.cls}">${d.txt}</span>` : ""; };
+function salesKpis(notes, prevNotes, cmp) {
+  const cur = salesMetrics(notes), prior = Array.isArray(prevNotes) ? salesMetrics(prevNotes) : null;
+  const fmt = { total: money, count: qty, average: money, units: qty };
+  const context = key => {
+    if (!cmp) return salesPeriod === "all" ? "todo el historial" : "sin comparar";
+    if (prevNotes === "loading") return "cargando " + cmp.corto.toLowerCase() + "…";
+    if (prevNotes === "error") return "sin conexión para comparar";
+    if (!prior[key]) return `${cmp.corto}: sin ventas`;
+    return `${deltaHtml(cur[key], prior[key])} · ${cmp.corto}: ${fmt[key](prior[key])}`;
   };
-  const data=[["Total vendido",money(current.total),context("total")],["Ventas",qty(current.count),context("count")],["Ticket promedio",money(current.average),context("average")],["Unidades vendidas",qty(current.units),context("units")]];
-  return `<div class="summary-stats">${data.map(x=>`<div class="summary-stat"><span class="summary-stat-label">${x[0]}</span><b class="summary-stat-value">${x[1]}</b><span class="summary-stat-context">${x[2]}</span></div>`).join("")}</div>`;
+  const data = [["Total vendido", money(cur.total), "total"], ["Ventas", qty(cur.count), "count"], ["Ticket promedio", money(cur.average), "average"], ["Unidades vendidas", qty(cur.units), "units"]];
+  return `<div class="summary-stats">${data.map(x => `<div class="summary-stat"><span class="summary-stat-label">${x[0]}</span><b class="summary-stat-value">${x[1]}</b><span class="summary-stat-context">${context(x[2])}</span></div>`).join("")}</div>`;
+}
+// suma las notas emitidas en barras de una hora, un día o una semana desde «start»
+function salesSeries(notes, start, length, unit) {
+  const paso = unit === "week" ? 7 : 1;
+  const bs = Array.from({ length }, (_, i) => ({ total: 0, count: 0, hour: unit === "hour" ? i : null, date: unit === "hour" ? null : addDays(start, i * paso) }));
+  notes.forEach(n => {
+    if (n.estado === "anulada") return;
+    const d = new Date(n.fecha);
+    if (Number.isNaN(d.getTime())) return;
+    const i = unit === "hour" ? d.getHours() : Math.floor(Math.round((dayStart(d) - start) / DIA_MS) / paso);
+    if (i >= 0 && i < length) { bs[i].total = round2(bs[i].total + n2(n.total)); bs[i].count++; }
+  });
+  return bs;
+}
+// tope del eje con números redondos; con cantidades, la mitad también es entera
+function niceMax(m, enteros) {
+  if (m <= 0) return 0;
+  const p = 10 ** Math.floor(Math.log10(m));
+  const r = (enteros ? [1, 2, 4, 6, 8, 10] : [1, 2, 2.5, 5, 10]).map(k => k * p).find(v => v >= m);
+  return enteros ? Math.max(2, r) : r;
+}
+const salesVal = b => salesMetric === "count" ? b.count : b.total;
+const salesFmt = v => salesMetric === "count" ? qty(v) : money(v);
+const ventasTxt = n => qty(n) + (n === 1 ? " venta" : " ventas");
+function salesWhen(b, unit) {
+  if (unit === "hour") return b.hour + ":00 a " + b.hour + ":59";
+  if (unit === "week") return "Semana del " + b.date.toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+  return b.date.toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" });
+}
+function salesTipTxt(b, pb, unit, cmp) {
+  let t = salesWhen(b, unit) + "\n" + money(b.total) + " · " + ventasTxt(b.count);
+  if (pb) {
+    const d = salesDelta(salesVal(b), salesVal(pb));
+    t += "\n" + cmp.corto + (unit === "hour" ? "" : " (" + salesWhen(pb, unit) + ")") + ": " + money(pb.total) + " · " + ventasTxt(pb.count) + (d ? "\nCambio: " + d.txt : "");
+  }
+  return t;
+}
+function renderSalesChart(notes, prevNotes, cmp) {
+  const r = salesRange(), now = new Date();
+  let unit = "day", start = r && r.start, length = r ? r.days : 1;
+  if (salesPeriod === "today") { unit = "hour"; length = 24; }
+  else if (!r) {
+    const fechas = notes.map(n => new Date(n.fecha)).filter(d => !Number.isNaN(d.getTime()));
+    start = dayStart(fechas.length ? new Date(Math.min(...fechas)) : now);
+    length = Math.round((dayStart(now) - start) / DIA_MS) + 1;
+    // en «Todo» con más de 60 días, las barras son semanas que empiezan el lunes
+    if (length > 60) { unit = "week"; start = addDays(start, -((start.getDay() + 6) % 7)); length = Math.floor(Math.round((dayStart(now) - start) / DIA_MS) / 7) + 1; }
+  }
+  let cur = salesSeries(notes, start, length, unit);
+  let prev = cmp && Array.isArray(prevNotes) ? salesSeries(prevNotes, dayStart(cmp.start), length, unit) : null;
+  if (unit === "hour") {
+    // horario visible: de 8 a 20 h, ampliado si hubo ventas fuera de ese rango
+    const usadas = [...cur, ...(prev || [])].filter(b => b.count).map(b => b.hour);
+    const lo = Math.min(8, ...usadas), hi = Math.max(20, ...usadas);
+    cur = cur.slice(lo, hi + 1); prev = prev && prev.slice(lo, hi + 1);
+  }
+  const trend = salesMetric === "total" && unit !== "hour" && !notasAviso() ? salesTrend(cur, unit === "week") : null;
+  const max = Math.max(0, ...cur.map(salesVal), ...(prev || []).map(salesVal), trend ? trend.max : 0);
+  const tope = niceMax(max, salesMetric === "count");
+  const alto = v => tope ? (v / tope * 100).toFixed(2) + "%" : "0";
+  const cada = unit === "hour" ? 2 : cur.length <= 10 ? 1 : Math.ceil(cur.length / 8);
+  const bars = cur.map((b, i) => {
+    const pb = prev && prev[i], v = salesVal(b);
+    return `<div class="sales-bar-col" data-tip="${esc(salesTipTxt(b, pb, unit, cmp))}">${pb && salesVal(pb) ? `<div class="sales-bar prev" style="height:${alto(salesVal(pb))}"></div>` : ""}<div class="sales-bar${v ? "" : " zero"}" style="${v ? "height:" + alto(v) : ""}"></div></div>`;
+  }).join("");
+  const labels = cur.map((b, i) => `<span>${i % cada === 0 || i === cur.length - 1 && cur.length <= 10 ? esc(unit === "hour" ? b.hour + ":00" : b.date.toLocaleDateString("es", { day: "2-digit", month: "short" })) : ""}</span>`).join("");
+  const ancho = Math.max(600, cur.length * (unit === "hour" ? 24 : 12));
+  const titulo = unit === "hour" ? "Ventas por hora" : unit === "week" ? "Ventas por semana" : "Ventas por día";
+  const sinVentas = !cur.some(b => b.count) && !(prev || []).some(b => b.count);
+  const leyenda = [
+    `<span><i></i>${salesPeriod === "today" ? "Hoy" : "Este período"}</span>`,
+    prev ? `<span><i class="prev"></i>${esc(cmp.corto)}</span>` : "",
+    trend ? `<span><i class="line"></i>Tendencia</span>` : "",
+  ].join("");
+  const espera = cmp && prevNotes === "loading" ? `<p class="muted sales-note">Cargando ${esc(cmp.corto.toLowerCase())}…</p>` : cmp && prevNotes === "error" ? `<p class="muted sales-note">Sin conexión: no se pudo traer ${esc(cmp.corto.toLowerCase())} para comparar.</p>` : "";
+  return `<section class="dash-card dash-wide"><div class="dash-heading sales-head"><h2>${titulo}</h2>
+      <span class="sales-top-toggle" role="group" aria-label="Qué medir"><button data-sales-metric="total" aria-pressed="${salesMetric === "total"}">Importe</button><button data-sales-metric="count" aria-pressed="${salesMetric === "count"}">N.º de ventas</button></span></div>
+    ${sinVentas ? `<div class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></div>` : `
+    <div class="sales-legend sales-legend-top">${leyenda}</div>
+    <div class="sales-chart-wrap"><div class="sales-chart${prev ? " compara" : ""}" style="grid-template-columns:64px minmax(${ancho}px,1fr)">
+      <div class="sales-axis"><span>${salesFmt(tope)}</span><span>${salesFmt(tope / 2)}</span><span>${salesFmt(0)}</span></div>
+      <div class="sales-plot" role="img" aria-label="${esc(titulo)}. El detalle de cada venta está en la tabla de abajo.">${bars}${trend && tope ? trendSvg(trend, cur.length, tope) : ""}</div>
+    </div><div class="sales-xlabels" style="min-width:${ancho + 64}px">${labels}</div></div>
+    ${espera}
+    ${trend ? `<p class="sales-trend"><b>${esc(trend.title)}</b>${esc(trend.change)}${trend.restNote ? `<small>${esc(trend.restNote)}</small>` : ""}</p>` : ""}`}
+  </section>`;
+}
+// qué días de la semana se vende más, comparado con el otro período
+function renderWeekdays(notes, prevNotes, cmp) {
+  if (salesPeriod === "today") return "";
+  const dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"], largos = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+  const sumar = list => {
+    const a = dias.map(() => ({ total: 0, count: 0 }));
+    list.forEach(n => {
+      if (n.estado === "anulada") return;
+      const d = new Date(n.fecha);
+      if (Number.isNaN(d.getTime())) return;
+      const x = a[(d.getDay() + 6) % 7]; x.total = round2(x.total + n2(n.total)); x.count++;
+    });
+    return a;
+  };
+  const cur = sumar(notes), prev = cmp && Array.isArray(prevNotes) ? sumar(prevNotes) : null;
+  if (!cur.some(b => b.count)) return "";
+  const tope = Math.max(1, ...cur.map(salesVal), ...(prev || []).map(salesVal));
+  const mejor = cur.reduce((m, b, i) => salesVal(b) > salesVal(cur[m]) ? i : m, 0);
+  const cols = cur.map((b, i) => {
+    const pb = prev && prev[i], d = pb ? salesDelta(salesVal(b), salesVal(pb)) : null;
+    const tip = largos[i][0].toUpperCase() + largos[i].slice(1) + "\n" + money(b.total) + " · " + ventasTxt(b.count) + (pb ? "\n" + cmp.corto + ": " + money(pb.total) + " · " + ventasTxt(pb.count) + (d ? "\nCambio: " + d.txt : "") : "");
+    const barra = (v, cls) => `<i class="${cls}${v ? "" : " zero"}" style="${v ? "height:" + (v / tope * 100).toFixed(2) + "%" : ""}"></i>`;
+    return `<div class="wk-col${prev ? " compara" : ""}" data-tip="${esc(tip)}">${barra(salesVal(b), "")}${prev ? barra(salesVal(pb), "prev") : ""}</div>`;
+  }).join("");
+  return `<section class="dash-card"><div class="dash-heading"><h2>Por día de la semana</h2><span class="dash-subtitle">mejor día: ${largos[mejor]} (${salesFmt(salesVal(cur[mejor]))})</span></div>
+    ${prev ? `<div class="sales-legend sales-legend-top"><span><i></i>Este período</span><span><i class="prev"></i>${esc(cmp.corto)}</span></div>` : ""}
+    <div class="wk-chart">${cols}</div><div class="wk-labels">${dias.map(d => `<span>${d}</span>`).join("")}</div></section>`;
+}
+// cada medio de pago tiene siempre el mismo color, por su lugar en la lista y no por cuánto vendió
+const pagoColor = label => { const i = MEDIOS_PAGO.indexOf(label); return i >= 0 && i < 5 ? `var(--c${i + 1})` : "var(--c-otro)"; };
+function renderPagos(notes, prevNotes, cmp) {
+  const rows = pagoResumen(notes);
+  if (!rows.length) return "";
+  const prior = cmp && Array.isArray(prevNotes) ? new Map(pagoResumen(prevNotes).map(d => [d.label, d])) : null;
+  const total = rows.reduce((a, d) => a + d.total, 0) || 1;
+  const pct = d => Math.round(d.total / total * 100);
+  const stack = rows.filter(d => d.total > 0).map(d => `<span style="flex-grow:${d.total};background:${pagoColor(d.label)}" data-tip="${esc(d.label + "\n" + money(d.total) + " · " + pct(d) + " %\n" + qty(d.count) + (d.count === 1 ? " nota" : " notas"))}"></span>`).join("");
+  const filas = rows.map(d => `<tr data-tip="${esc(d.label + ": " + money(d.total))}"><td><i class="sw" style="background:${pagoColor(d.label)}"></i>${esc(d.label)}</td><td class="num">${money(d.total)}</td><td class="num">${pct(d)} %</td><td class="num notas">${qty(d.count)}</td>${prior ? `<td class="num">${deltaHtml(d.total, prior.get(d.label)?.total || 0) || "—"}</td>` : ""}</tr>`).join("");
+  return `<section class="dash-card"><div class="dash-heading"><h2>Por medio de pago</h2><span class="dash-subtitle">sin contar anuladas</span></div>
+    <div class="pay-stack" role="img" aria-label="Reparto por medio de pago; los montos están en la tabla">${stack}</div>
+    <div class="pay-wrap"><table class="pay-table"><thead><tr><th>Medio</th><th class="num">Importe</th><th class="num">%</th><th class="num notas">Notas</th>${prior ? `<th class="num" title="${esc("Cambio vs. " + cmp.corto.toLowerCase())}">Cambio</th>` : ""}</tr></thead><tbody>${filas}</tbody></table></div></section>`;
 }
 // Parábola de tendencia: ajuste por mínimos cuadrados y = a + b·x + c·x² sobre las ventas de cada barra
 // (x de 0 a 1). Describe el período, no predice. Diseñada junto con Codex.
@@ -3897,44 +4110,23 @@ function trendSvg(trend, n, top) {
   const d = trend.samples.map((x, i) => `${i ? "L" : "M"}${(x * (n - 1) + 0.5).toFixed(3)} ${(top - Math.min(top, Math.max(0, trend.f(x)))).toFixed(2)}`).join(" ");
   return `<svg class="sales-trend-svg" viewBox="0 0 ${n} ${top}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
 }
-function renderSalesChart(notes) {
-  const emitted=notes.filter(n=>n.estado!=="anulada"), now=new Date(); let buckets=[];
-  if(salesPeriod==="today") buckets=Array.from({length:15},(_,i)=>{const h=i+8,group=emitted.filter(n=>new Date(n.fecha).getHours()===h);return {label:h+":00",tip:h+":00",total:group.reduce((a,n)=>a+n2(n.total),0),count:group.length};});
-  else {
-    let start=new Date(now.getFullYear(),now.getMonth(),now.getDate()), days=salesPeriod==="7d"?7:salesPeriod==="30d"?30:salesPeriod==="month"?start.getDate():0;
-    // el período termina hoy: el primer día del gráfico es hoy menos (días - 1), igual que en salesInPeriod
-    if(salesPeriod==="7d"||salesPeriod==="30d")start.setDate(start.getDate()-(days-1));
-    if(salesPeriod==="month")start.setDate(1);
-    if(salesPeriod==="all"){const dates=emitted.map(n=>new Date(n.fecha)).filter(d=>!Number.isNaN(d.getTime()));if(dates.length){start=new Date(Math.min(...dates));start.setHours(0,0,0,0);days=Math.floor((now-start)/86400000)+1;}}
-    if(salesPeriod==="all"&&days>60){const map=new Map();emitted.forEach(n=>{const d=new Date(n.fecha);d.setDate(d.getDate()-(d.getDay()+6)%7);d.setHours(0,0,0,0);const k=d.toISOString().slice(0,10);if(!map.has(k))map.set(k,{date:d,total:0,count:0});const b=map.get(k);b.total+=n2(n.total);b.count++;});buckets=[...map.values()].sort((a,b)=>a.date-b.date).map(b=>({...b,label:b.date.toLocaleDateString("es",{day:"2-digit",month:"short"}),tip:b.date.toLocaleDateString("es")}));}
-    else buckets=Array.from({length:days},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);const group=emitted.filter(n=>new Date(n.fecha).toDateString()===d.toDateString()),label=days<=7||i===0||i===days-1||i%5===0?d.toLocaleDateString("es",{day:"2-digit",month:"short"}):"";return {date:d,label,tip:d.toLocaleDateString("es",{weekday:"short",day:"numeric",month:"short"}),total:group.reduce((a,n)=>a+n2(n.total),0),count:group.length};});
-  }
-  // en "Todo" con más de 60 días las barras son semanas
-  const weekly=salesPeriod==="all"&&buckets.length>1&&buckets[1].date-buckets[0].date>3*86400000;
-  const trend=salesTrend(buckets,weekly);
-  const max=Math.max(0,...buckets.map(b=>b.total),trend?trend.max:0), rounded=max?Math.ceil(max/10)*10:0, half=rounded/2;
-  const bars=buckets.map(b=>`<div class="sales-bar-col"><div class="sales-bar" style="height:${b.total&&rounded?b.total/rounded*100+"%":"2px;background:var(--line)"}" title="${esc(b.tip)}: ${money(b.total)} · ${b.count} ventas"></div></div>`).join("");
-  const labels=buckets.map(b=>`<span>${esc(b.label)}</span>`).join("");
-  return `<section class="dash-card dash-wide"><div class="dash-heading"><h2>Ventas por día</h2><span class="dash-subtitle">${salesPeriod==="today"?"por hora":salesPeriod==="all"&&buckets.length>60?"por semana":"importe emitido"}</span></div>${buckets.length?`<div class="sales-chart-wrap"><div class="sales-chart" style="grid-template-columns:64px minmax(${Math.max(600,buckets.length*10)}px,1fr)"><div class="sales-axis"><span>${money(rounded)}</span><span>${money(half)}</span><span>${money(0)}</span></div><div class="sales-plot">${bars}${trend&&rounded?trendSvg(trend,buckets.length,rounded):""}</div></div><div class="sales-xlabels" style="min-width:${Math.max(600,buckets.length*10)+64}px">${labels}</div></div>${trend?`<div class="sales-legend"><span><i></i>Barras: ventas</span><span><i class="line"></i>Línea: tendencia</span></div><p class="sales-trend"><b>${esc(trend.title)}</b>${esc(trend.change)}${trend.restNote?`<small>${esc(trend.restNote)}</small>`:""}</p>`:""}`:`<div class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></div>`}</section>`;
-}
 function salesTopData(notes) {
   const products=new Map(),variants=new Map(),categories=new Map();
   notes.filter(n=>n.estado!=="anulada").forEach(n=>n.items.forEach(i=>{const p=S.products.find(x=>x.id===i.productId),savedName=i.variantId?String(i.nombre||"").replace(/\s+–\s+[^–]*$/,""):i.nombre,name=p?p.nombre:savedName,key=i.productId||name,units=n2(i.cant),amount=units*n2(i.precio);if(!products.has(key))products.set(key,{label:name,units:0,amount:0});products.get(key).units+=units;products.get(key).amount+=amount;if(i.variantId){const v=(p?.variantes||[]).find(x=>x.id===i.variantId),size=i.talla||v?.talla||"Sin talla",color=i.color||v?.color||"Sin color",vk=key+size+color;if(!variants.has(vk))variants.set(vk,{label:`${name} – ${size} / ${color}`,value:0});variants.get(vk).value+=units;}else{const cat=p?.categoria||"Sin categoría";categories.set(cat,(categories.get(cat)||0)+units);}}));
-  const top=[...products.values()].map(x=>({...x,value:salesTopMode==="units"?x.units:x.amount})).sort((a,b)=>b.value-a.value).slice(0,10), detail=variants.size?[...variants.values()].sort((a,b)=>b.value-a.value).slice(0,8):[...categories].map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value).slice(0,8);
-  return {top,detail,variants:variants.size>0};
+  const top=[...products].map(([key,x])=>({...x,key,value:salesTopMode==="units"?x.units:x.amount})).sort((a,b)=>b.value-a.value).slice(0,10), detail=variants.size?[...variants.values()].sort((a,b)=>b.value-a.value).slice(0,8):[...categories].map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value).slice(0,8);
+  return {top,detail,variants:variants.size>0,products};
 }
-function renderTopProducts(notes) {
-  const data=salesTopData(notes), empty=`<div class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></div>`;
-  const productRows=data.top.map((x,i)=>`<div class="bar-row"><span class="bar-label" title="${esc(x.label)}"><span class="rank">${i+1}.</span>${esc(x.label)}</span><span class="bar-track"><span class="bar" style="width:calc((100% - 11em) * ${(x.value/Math.max(1,...data.top.map(y=>y.value))).toFixed(4)})"></span><span class="bar-val num">${qty(x.units)} und · ${money(x.amount)}</span></span></div>`).join("");
-  const detailRows=data.detail.map((x,i)=>`<div class="bar-row"><span class="bar-label" title="${esc(x.label)}"><span class="rank">${i+1}.</span>${esc(x.label)}</span><span class="bar-track"><span class="bar" style="width:calc((100% - 5em) * ${(x.value/Math.max(1,...data.detail.map(y=>y.value))).toFixed(4)})"></span><span class="bar-val num">${qty(x.value)} und</span></span></div>`).join("");
-  return `<div class="dash-grid"><section class="dash-card"><div class="dash-heading"><h2>Productos más vendidos</h2><span class="sales-top-toggle"><button data-sales-mode="units" aria-pressed="${salesTopMode==="units"}">Unidades</button><button data-sales-mode="amount" aria-pressed="${salesTopMode==="amount"}">Ingresos</button></span></div>${productRows?`<div class="bars">${productRows}</div>`:empty}</section><section class="dash-card"><div class="dash-heading"><h2>Tallas y colores más vendidos</h2><span class="dash-subtitle">${data.variants?"por unidades":"por categoría · unidades"}</span></div>${detailRows?`<div class="bars">${detailRows}</div>`:empty}</section></div>`;
-}
-function renderPagos(notes) {
-  const rows = pagoResumen(notes);
-  if (!rows.length) return "";
-  const max = Math.max(...rows.map(d => d.total), 1);
-  const bars = rows.map(d => `<div class="bar-row"><span class="bar-label" title="${esc(d.label)}">${esc(d.label)}</span><span class="bar-track"><span class="bar" style="width:calc((100% - 11em) * ${(d.total / max).toFixed(4)})"></span><span class="bar-val num">${money(d.total)} · ${qty(d.count)} ${d.count === 1 ? "nota" : "notas"}</span></span></div>`).join("");
-  return `<div class="dash-grid"><section class="dash-card dash-wide"><div class="dash-heading"><h2>Por medio de pago</h2><span class="dash-subtitle">sin contar anuladas</span></div><div class="bars">${bars}</div></section></div>`;
+function renderTopProducts(notes, prevNotes, cmp) {
+  const data = salesTopData(notes), prior = cmp && Array.isArray(prevNotes) ? salesTopData(prevNotes).products : null;
+  const empty = `<div class="sales-empty">Aún no hay ventas en este período. <button class="btn primary" data-view="venta">Nueva venta</button></div>`;
+  const tope = Math.max(1, ...data.top.map(y => y.value)), topeDet = Math.max(1, ...data.detail.map(y => y.value));
+  const productRows = data.top.map((x, i) => {
+    const p = prior && prior.get(x.key), pv = p ? (salesTopMode === "units" ? p.units : p.amount) : 0;
+    const tip = x.label + "\n" + qty(x.units) + " und · " + money(x.amount) + (prior ? "\n" + cmp.corto + ": " + (p ? qty(p.units) + " und · " + money(p.amount) : "sin ventas") : "");
+    return `<div class="bar-row" data-tip="${esc(tip)}"><span class="bar-label"><span class="rank">${i + 1}.</span>${esc(x.label)}</span><span class="bar-track"><span class="bar s1" style="width:calc((100% - ${prior ? 15 : 11}em) * ${(x.value / tope).toFixed(4)})"></span><span class="bar-val num">${qty(x.units)} und · ${money(x.amount)}${prior ? " " + deltaHtml(x.value, pv) : ""}</span></span></div>`;
+  }).join("");
+  const detailRows = data.detail.map((x, i) => `<div class="bar-row" data-tip="${esc(x.label + "\n" + qty(x.value) + " und")}"><span class="bar-label"><span class="rank">${i + 1}.</span>${esc(x.label)}</span><span class="bar-track"><span class="bar s1" style="width:calc((100% - 5em) * ${(x.value / topeDet).toFixed(4)})"></span><span class="bar-val num">${qty(x.value)} und</span></span></div>`).join("");
+  return `<div class="dash-grid"><section class="dash-card"><div class="dash-heading"><h2>Productos más vendidos</h2><span class="sales-top-toggle"><button data-sales-mode="units" aria-pressed="${salesTopMode === "units"}">Unidades</button><button data-sales-mode="amount" aria-pressed="${salesTopMode === "amount"}">Ingresos</button></span>${prior ? `<span class="dash-subtitle">cambio vs. ${esc(cmp.corto.toLowerCase())}</span>` : ""}</div>${productRows ? `<div class="bars">${productRows}</div>` : empty}</section><section class="dash-card"><div class="dash-heading"><h2>Tallas y colores más vendidos</h2><span class="dash-subtitle">${data.variants ? "por unidades" : "por categoría · unidades"}</span></div>${detailRows ? `<div class="bars">${detailRows}</div>` : empty}</section></div>`;
 }
 function renderSalesTable(notes) {
   const query=norm(salesQ),rows=notes.filter(n=>!query||norm([folioTxt(n.folio),n.cliente,n.pago,...n.items.map(i=>i.nombre)].join(" ")).includes(query));
@@ -3963,14 +4155,56 @@ function renderSalesTable(notes) {
 }
 function renderVentas() {
   if (!exigir("estadisticas.ver", "ver estadísticas")) return;
-  const hadSearchFocus=document.activeElement&&document.activeElement.id==="salesSearch";
+  chartTip.hidden = true;
+  const hadSearchFocus = document.activeElement && document.activeElement.id === "salesSearch";
   notasAsegurar(salesDesde());
-  const el=$("#v-ventas"),notes=salesInPeriod();
-  el.innerHTML=`<div class="toolbar"><h1 style="margin-right:auto">Ventas</h1><div class="seg">${salesPeriods.map(([key,label])=>`<button data-sales-period="${key}" aria-pressed="${salesPeriod===key}">${label}</button>`).join("")}</div></div>${notasAviso()}${salesKpis(notes)}${renderSalesChart(notes)}${renderPagos(notes)}${renderTopProducts(notes)}${renderSalesTable(notes)}`;
-  if(hadSearchFocus){const input=$("#salesSearch");input.focus();input.setSelectionRange(input.value.length,input.value.length);}
+  const cargando = !!(notasEscuchar && notasDesde !== notasInicio && notasDeCache);
+  const el = $("#v-ventas"), notes = salesInPeriod(), cmp = salesCompareRange(), prevNotes = cmp && cargando ? "loading" : salesCompareNotes(cmp);
+  const fecha = d => d.toLocaleDateString("es", { day: "numeric", month: "short", year: salesCompare === "year" ? "numeric" : undefined });
+  const rango = !cmp ? "" : salesPeriod === "today"
+    ? fecha(cmp.start) + ", hasta las " + cmp.end.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })
+    : fecha(cmp.start) + " al " + fecha(cmp.end) + ", hasta la misma hora";
+  const todo = salesPeriod === "all";
+  const compara = `<div class="sales-compare"><span>Comparar con</span><div class="seg">${salesCompares.map(([k, l]) => `<button data-sales-compare="${k}" aria-pressed="${todo ? k === "none" : salesCompare === k}"${todo && k !== "none" ? " disabled" : ""}>${l}</button>`).join("")}</div><span class="muted">${todo ? "Elige un período para comparar." : esc(rango)}</span></div>`;
+  el.innerHTML = `<div class="toolbar"><h1 style="margin-right:auto">Ventas</h1><div class="seg">${salesPeriods.map(([key, label]) => `<button data-sales-period="${key}" aria-pressed="${salesPeriod === key}">${label}</button>`).join("")}</div></div>${compara}${notasAviso()}${salesKpis(notes, prevNotes, cmp)}${renderSalesChart(notes, prevNotes, cmp)}<div class="dash-grid sales-pair">${renderWeekdays(notes, prevNotes, cmp)}${renderPagos(notes, prevNotes, cmp)}</div>${renderTopProducts(notes, prevNotes, cmp)}${renderSalesTable(notes)}`;
+  if (hadSearchFocus) { const input = $("#salesSearch"); input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
 }
-$("#v-ventas").addEventListener("input",e=>{if(e.target.id==="salesSearch"){salesQ=e.target.value;salesLimit=25;renderVentas();}});
-$("#v-ventas").addEventListener("click",e=>{const t=e.target.closest("button, tr[data-sales-note]");if(!t)return;if(t.dataset.view)return go(t.dataset.view);if(t.dataset.salesPeriod){salesPeriod=t.dataset.salesPeriod;store.set("mostrador.salesPeriod",salesPeriod);salesLimit=25;return renderVentas();}if(t.dataset.salesMode){salesTopMode=t.dataset.salesMode;return renderVentas();}if(t.dataset.salesSort){if(salesSort===t.dataset.salesSort)salesDir*=-1;else{salesSort=t.dataset.salesSort;salesDir=t.dataset.salesSort==="fecha"?-1:1;}return renderVentas();}if(t.id==="salesMore"){salesLimit+=25;return renderVentas();}if(t.id==="salesExport")return exportSalesCsv(salesInPeriod(),t);if(t.dataset.salesNote){S.selNote=t.dataset.salesNote;return go("notas");}});
+// detalle al pasar el mouse o tocar una barra: un solo cuadro flotante para toda la vista
+const chartTip = document.createElement("div");
+chartTip.className = "chart-tip";
+chartTip.hidden = true;
+chartTip.setAttribute("role", "tooltip");
+document.body.append(chartTip);
+function chartTipMove(e) {
+  const t = e.target.closest && e.target.closest("[data-tip]");
+  if (!t) { chartTip.hidden = true; return; }
+  chartTip.textContent = t.dataset.tip;
+  chartTip.hidden = false;
+  const w = chartTip.offsetWidth, h = chartTip.offsetHeight;
+  let x = e.clientX + 14, y = e.clientY - h - 12;
+  if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if (y < 8) y = e.clientY + 18;
+  chartTip.style.left = Math.max(8, x) + "px";
+  chartTip.style.top = y + "px";
+}
+$("#v-ventas").addEventListener("pointermove", chartTipMove);
+$("#v-ventas").addEventListener("pointerdown", chartTipMove);
+$("#v-ventas").addEventListener("pointerleave", () => { chartTip.hidden = true; });
+addEventListener("scroll", () => { chartTip.hidden = true; }, { passive: true });
+$("#v-ventas").addEventListener("input", e => { if (e.target.id === "salesSearch") { salesQ = e.target.value; salesLimit = 25; renderVentas(); } });
+$("#v-ventas").addEventListener("click", e => {
+  const t = e.target.closest("button, tr[data-sales-note]");
+  if (!t) return;
+  if (t.dataset.view) return go(t.dataset.view);
+  if (t.dataset.salesPeriod) { salesPeriod = t.dataset.salesPeriod; store.set("mostrador.salesPeriod", salesPeriod); salesLimit = 25; return renderVentas(); }
+  if (t.dataset.salesCompare) { salesCompare = t.dataset.salesCompare; store.set("mostrador.salesCompare", salesCompare); return renderVentas(); }
+  if (t.dataset.salesMetric) { salesMetric = t.dataset.salesMetric; return renderVentas(); }
+  if (t.dataset.salesMode) { salesTopMode = t.dataset.salesMode; return renderVentas(); }
+  if (t.dataset.salesSort) { if (salesSort === t.dataset.salesSort) salesDir *= -1; else { salesSort = t.dataset.salesSort; salesDir = t.dataset.salesSort === "fecha" ? -1 : 1; } return renderVentas(); }
+  if (t.id === "salesMore") { salesLimit += 25; return renderVentas(); }
+  if (t.id === "salesExport") return exportSalesCsv(salesInPeriod(), t);
+  if (t.dataset.salesNote) { S.selNote = t.dataset.salesNote; return go("notas"); }
+});
 async function exportSalesCsv(notes, btn) {
   if (!exigir("datos.exportar", "exportar ventas")) return;
   await saveExcel("ventas-" + isoDay(new Date()), salesBook(notes), btn);
@@ -4255,7 +4489,7 @@ function fbDetener() {
   webCat = null; clearTimeout(webTimer);
   if (fb) { fb.invUnsub = null; fb.negocioId = null; fb.dueno = null; }
   db = null; sessionId = null;
-  S.products = []; S.notes = []; S.users = []; S.quotes = []; S.cajas = []; cajasBlocked = false; S.loaded = false;
+  S.products = []; S.notes = []; S.users = []; S.quotes = []; S.cajas = []; cajasBlocked = false; salesRangoCache.clear(); S.loaded = false;
   notasDesde = null; notasInicio = null; notasEscuchar = null; notasFolioMax = 0; notasDeCache = false;
   S.settings = { negocio: "Mi negocio", moneda: "S/" };
 }
@@ -4297,6 +4531,7 @@ function fbDb(nid) {
         docs: s.docs.map(wrap), fromCache: s.metadata.fromCache, cambios: s.docChanges().length,
       }), err));
     },
+    notesRango: async (desde, hasta) => (await F.getDocs(F.query(F.collection(fs, base + "notes"), F.where("fecha", ">=", desde), F.where("fecha", "<", hasta)))).docs.map(d => ({ id: d.id, ...d.data() })),
     notesServidor: async () => ({ docs: (await F.getDocsFromServer(F.collection(fs, base + "notes"))).docs.map(wrap) }),
     // cada cierre es un documento: se escuchan solo los últimos para que el historial no encarezca cada apertura
     cajasRecientes: (cb, err) => fbTrack(F.onSnapshot(F.query(F.collection(fs, base + "cajas"), F.orderBy("abiertaEn", "desc"), F.limit(60)), s => cb({ docs: s.docs.map(wrap) }), err)),
