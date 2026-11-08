@@ -365,6 +365,10 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
 .var-legend span{display:inline-flex;align-items:center;gap:5px}
 .var-legend i{width:10px;height:10px;border-radius:3px;background:var(--warn-soft);border:1px solid var(--warn)}
 .var-legend i.out{background:var(--bad-soft);border-color:var(--bad)}
+.color-tots{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.color-tots span{display:inline-flex;align-items:center;white-space:nowrap}
+.color-tots b{margin-left:4px;color:var(--fg);font:600 12.5px var(--f-mono);font-variant-numeric:tabular-nums}
+.color-tots .out b{color:var(--bad)}
 .var-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
 .var-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px}
 .sw{display:inline-block;flex:none;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:var(--sw,transparent);border:1px solid rgb(0 0 0 / .2)}
@@ -395,6 +399,13 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
 .var-rows.agrupado .var-edit:not([data-loose]) .var-name{padding-left:18px;font-weight:500}
 .var-rows.agrupado .var-edit:not([data-loose]) .var-name .sw{display:none}
 .pick-chips button.pick-more{border-style:dashed;color:var(--muted)}
+.cat-campo{min-width:0}
+.cat-campo + .f{align-self:start}
+.cat-chips{margin:6px 0 4px}
+.cat-chips-label{font-size:12px;font-weight:600;color:var(--muted)}
+.cat-chips .pick-chips{margin-top:4px}
+.pick-chips button .n{margin-left:3px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pick-chips button[aria-pressed="true"] .n{color:inherit;opacity:.8}
 .var-edit .var-loose{display:flex;gap:4px;min-width:0}
 .var-edit .x{width:34px;height:34px;padding:0;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:15px}
 .var-edit .x:hover{color:var(--bad);border-color:var(--bad)}
@@ -637,13 +648,16 @@ body{height:100dvh;overflow:hidden}
       </div>
       <input type="file" id="p-foto-file" accept="image/*" hidden>
     </div>
-    <label class="f"><span>Nombre del producto</span><input type="text" id="p-nombre" required autocomplete="off" placeholder="Ej. Arroz extra 5 kg"></label>
+    <label class="f"><span>Nombre del producto</span><input type="text" id="p-nombre" required autocomplete="off" placeholder="Ej. Arroz extra 5 kg" aria-describedby="p-nombre-aviso"></label>
+    <p id="p-nombre-aviso" class="warnline" role="alert" hidden></p>
     <div id="p-similar" class="similar" hidden></div>
     <div class="grid2">
-      <label class="f"><span>Categoría</span><input type="text" id="p-categoria" list="catlist" autocomplete="off" placeholder="Ej. Abarrotes"></label>
+      <div class="cat-campo">
+        <label class="f"><span>Categoría</span><input type="text" id="p-categoria" autocomplete="off" placeholder="Toca una de abajo o escribe una nueva"></label>
+        <div class="cat-chips" id="p-cats" role="group" aria-label="Categorías que ya usas" hidden></div>
+      </div>
       <label class="f"><span>Código / SKU</span><input type="text" id="p-codigo" autocomplete="off" placeholder="Opcional"></label>
     </div>
-    <datalist id="catlist"></datalist>
     <div class="cod-tools">
       <button type="button" class="btn" id="p-cod-crear">Crear código</button>
       <button type="button" class="btn" id="p-cod-scan"><svg class="bc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>Escanear</button>
@@ -990,6 +1004,83 @@ async function putProduct(p) {
   if (db) await db.collection("products").doc(p.id).set(body);
   else { mem.products.set(p.id, { ...p }); syncMem(); }
 }
+// Firebase: el nombre se reserva en negocios/{id}/nombres/{nombre normalizado} en la misma transacción que guarda
+// el producto; si otro equipo reservó ese nombre un instante antes, la transacción lo ve y no se guarda.
+// Sin internet, o si las reglas nuevas aún no se publicaron, se guarda como antes (queda la revisión en pantalla).
+async function putProductUnico(p, anterior) {
+  if (!usaTransacciones()) return putProduct(p);
+  if (!exigir(anterior ? "producto.editar" : "producto.crear", "guardar productos")) return;
+  const { F, fs } = fb, base = "negocios/" + fb.negocioId + "/";
+  const clave = norm(p.nombre), viejaClave = anterior ? norm(anterior.nombre) : "";
+  const body = { ...p }; delete body.id;
+  if (navigator.onLine) {
+    try {
+      await F.runTransaction(fs, async tx => {
+        const ref = F.doc(fs, base + "nombres/" + clave);
+        const s = await tx.get(ref);
+        if (s.exists() && s.data().productId !== p.id) {
+          // la reserva sirve solo si su producto sigue existiendo
+          const otro = await tx.get(F.doc(fs, base + "products/" + s.data().productId));
+          if (otro.exists()) throw Object.assign(new Error("Nombre repetido"), { aviso: `Ya existe un producto llamado «${otro.data().nombre}». Cambia el nombre.` });
+        }
+        let viejaRef = null;
+        if (viejaClave && viejaClave !== clave) {
+          viejaRef = F.doc(fs, base + "nombres/" + viejaClave);
+          const v = await tx.get(viejaRef);
+          if (!v.exists() || v.data().productId !== p.id) viejaRef = null;
+        }
+        tx.set(ref, { productId: p.id });
+        if (viejaRef) tx.delete(viejaRef);
+        tx.set(F.doc(fs, base + "products/" + p.id), body);
+      });
+      return;
+    } catch (e) {
+      if (e.aviso) throw e;
+      if (!sinRed(e) && !String(e && e.code).includes("permission")) throw e;
+    }
+  }
+  // guardado sin reserva: se repasan los nombres cuando haya internet
+  try { localStorage.setItem(NOMBRES_REVISAR, fb.negocioId); } catch {}
+  return putProduct(p);
+}
+// Los productos que existían antes de las reservas (o guardados sin internet) no tienen su nombre reservado.
+// Un administrador los reserva una vez por negocio; la marca settings/nombres (fuera de la colección de nombres,
+// para que no pueda confundirse con ningún producto) evita volver a leer todo en cada apertura.
+const NOMBRES_REVISAR = "mostrador.nombresRevisar";
+let nombresRevisando = false;
+async function nombresReservarExistentes() {
+  if (nombresRevisando || !usaTransacciones() || !navigator.onLine || !puede("producto.editar")) return;
+  nombresRevisando = true;
+  const { F, fs } = fb, nid = fb.negocioId, base = "negocios/" + nid + "/";
+  try {
+    const listo = F.doc(fs, base + "settings/nombres");
+    let revisar = false;
+    try { revisar = localStorage.getItem(NOMBRES_REVISAR) === nid; } catch {}
+    if (!revisar && (await F.getDoc(listo)).exists()) return;
+    const [prods, nombres] = await Promise.all([
+      F.getDocsFromServer(F.collection(fs, base + "products")),
+      F.getDocsFromServer(F.collection(fs, base + "nombres")),
+    ]);
+    const existen = new Set(prods.docs.map(d => d.id));
+    // una reserva cuenta solo si su producto sigue existiendo
+    const usados = new Set(nombres.docs.filter(d => existen.has(d.data().productId)).map(d => d.id));
+    const nuevos = [];
+    prods.docs.forEach(d => {
+      const k = norm(d.data().nombre);
+      if (k && !usados.has(k)) { usados.add(k); nuevos.push([k, d.id]); }
+    });
+    for (let i = 0; i < nuevos.length; i += 400) {
+      const b = F.writeBatch(fs);
+      nuevos.slice(i, i + 400).forEach(([k, id]) => b.set(F.doc(fs, base + "nombres/" + k), { productId: id }));
+      await b.commit();
+    }
+    await F.setDoc(listo, { reservados: true, fecha: new Date().toISOString() });
+    try { if (localStorage.getItem(NOMBRES_REVISAR) === nid) localStorage.removeItem(NOMBRES_REVISAR); } catch {}
+  } catch {
+    // sin las reglas nuevas o sin conexión: se intenta otra vez la próxima vez
+  } finally { nombresRevisando = false; }
+}
+addEventListener("online", () => setTimeout(nombresReservarExistentes, 2000));
 async function patchProduct(id, patch) {
   if (!saleAdjusting && (Object.prototype.hasOwnProperty.call(patch, "stock") || Object.prototype.hasOwnProperty.call(patch, "variantes"))) { if (!exigir("stock.ajustar", "ajustar stock")) return; }
   if (db) await db.collection("products").doc(id).update(patch);
@@ -1232,6 +1323,19 @@ function byColor(a, b) {
 }
 const uniq = list => list.filter((x, i) => x && list.findIndex(y => norm(y) === norm(x)) === i);
 const openVar = new Set(); // productos con el detalle de tallas abierto en Inventario
+// total de cada color del producto, siempre a la vista en la fila (solo si tiene dos colores o más)
+function colorTotalsHtml(p) {
+  const tot = new Map();
+  (p.variantes || []).forEach(v => {
+    const c = (v.color || "").trim(); if (!c) return;
+    const k = norm(c), e = tot.get(k) || { nombre: c, n: 0 };
+    e.n += n2(v.stock); tot.set(k, e);
+  });
+  if (tot.size < 2) return "";
+  const lista = [...tot.values()].sort((a, b) => byColor(a.nombre, b.nombre));
+  return `<div class="color-tots" aria-label="Stock por color">${lista.map(c =>
+    `<span class="${c.n <= 0 ? "out" : ""}" title="${esc(c.nombre)}: ${qty(c.n)} ${esc(p.unidad || "und")}">${swatch(c.nombre)}${esc(c.nombre)} <b>${qty(c.n)}</b></span>`).join("")}</div>`;
+}
 function varRowHtml(p, st, chip) {
   const vs = p.variantes, open = openVar.has(p.id);
   // avisa cuántas tallas o colores piden reposición aunque el total alcance
@@ -1240,7 +1344,7 @@ function varRowHtml(p, st, chip) {
   const prices = vs.map(v => n2(v.precio ?? p.precio)), lo = Math.min(...prices), hi = Math.max(...prices);
   return `<div class="row" data-id="${esc(p.id)}">
     ${nameHtml(p, `<button data-edit="${esc(p.id)}">${esc(p.nombre)}</button>
-      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}<span>${vs.length} ${vs.length === 1 ? "variante" : "variantes"}</span></div>`)}
+      <div class="meta">${S.group === "semejanza" && p.categoria ? `<span>${esc(p.categoria)}</span>` : ""}${p.codigo ? `<span class="num">${esc(p.codigo)}</span>` : ""}<span>${vs.length} ${vs.length === 1 ? "variante" : "variantes"}</span></div>${colorTotalsHtml(p)}`)}
     <div class="price">${lo === hi ? money(lo) : `<span style="white-space:nowrap">${money(lo)} –</span> <span style="white-space:nowrap">${money(hi)}</span>`}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
     <button class="var-toggle" data-vtoggle="${esc(p.id)}" aria-expanded="${open}" aria-label="Ver stock por talla y color de ${esc(p.nombre)}"><b>${qty(st)}</b><span class="muted">${esc(p.unidad || "und")} · ${open ? "Ocultar" : "Ver tallas"}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
     <div class="estado">${chip}</div>
@@ -1546,6 +1650,8 @@ async function importBackup(file) {
           } else { mem.products.clear(); mem.notes.clear(); mem.quotes.clear(); mem.cajas.clear(); }
         }
         for (const p of incoming.products) if (p && p.id) await putProduct(p);
+        // los productos importados no tienen su nombre reservado
+        if (usaTransacciones()) { try { localStorage.setItem(NOMBRES_REVISAR, fb.negocioId); } catch {} nombresReservarExistentes(); }
         for (const n of incoming.notes) if (n && n.id) await putNote(n);
         for (const q of Array.isArray(incoming.quotes) ? incoming.quotes : []) if (q && q.id) await putQuote(q);
         if (!cajasBlocked) for (const x of Array.isArray(incoming.cajas) ? incoming.cajas : []) if (x && x.id) await putCaja(x);
@@ -1604,8 +1710,10 @@ function openProduct(id) {
   $("#p-web-row").hidden = !webVinculada();
   $("#p-web").checked = !!(editing && editing.web);
   $("#p-err").hidden = true;
+  avisoNombreRepetido();
   const del = $("#p-del"); del.hidden = !editing; del.classList.remove("armed"); del.textContent = "Eliminar";
-  $("#catlist").innerHTML = [...new Set(S.products.map(p => (p.categoria || "").trim()).filter(Boolean))].sort().map(c => `<option value="${esc(c)}">`).join("");
+  catTodas = false;
+  renderCatChips();
   showSimilar();
   dlg.showModal();
   setTimeout(() => $("#p-nombre").focus(), 30);
@@ -1741,6 +1849,11 @@ document.getElementById("pform").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.tallaset) { pick.set = b.dataset.tallaset; return renderPick(); }
   if ("pickMore" in b.dataset) { pick.masColores = !pick.masColores; return renderPick(); }
+  if ("catMore" in b.dataset) { catTodas = !catTodas; return renderCatChips(); }
+  if (b.dataset.cat !== undefined) {
+    $("#p-categoria").value = b.dataset.cat;
+    showSimilar(); return renderCatChips();
+  }
   if (b.dataset.pick) {
     const list = b.dataset.pick === "talla" ? pick.tallas : pick.colores, x = b.dataset.value, i = list.findIndex(y => norm(y) === norm(x));
     if (i >= 0) list.splice(i, 1); else list.push(x);
@@ -1782,10 +1895,59 @@ function showSimilar() {
   box.innerHTML = `<b>Se parece a:</b><ul>${sims.map(x => `<li><span>${esc(x.p.nombre)}${x.p.categoria ? ` <span class="muted">· ${esc(x.p.categoria)}</span>` : ""}</span><span class="pct">${Math.round(x.s * 100)}%</span></li>`).join("")}</ul>
     ${sug && sug[0] !== cur ? `<div><button type="button" class="btn" id="useCat">Usar categoría «${esc(sug[0])}»</button></div>` : ""}`;
   box.hidden = false;
-  const b = $("#useCat"); if (b) b.onclick = () => { $("#p-categoria").value = sug[0]; showSimilar(); };
+  const b = $("#useCat"); if (b) b.onclick = () => { $("#p-categoria").value = sug[0]; showSimilar(); renderCatChips(); };
+}
+// dos productos con el mismo nombre se confunden al vender: se avisa mientras se escribe y no se deja guardar.
+// Cuenta como igual aunque cambien mayúsculas, tildes, espacios o signos («Colchón  King» = «colchon king»).
+function productoConNombre(nombre, exceptoId) {
+  const clave = norm(nombre);
+  return clave ? S.products.find(x => x.id !== exceptoId && norm(x.nombre) === clave) : null;
+}
+function avisoNombreRepetido() {
+  const el = $("#p-nombre-aviso"), otro = productoConNombre($("#p-nombre").value, editing && editing.id);
+  el.textContent = otro ? `Ya existe un producto llamado «${otro.nombre}». Cambia el nombre (por ejemplo, agrega la medida o la marca) o edita ese producto.` : "";
+  el.hidden = !otro;
+  return !!otro;
 }
 $("#p-nombre").addEventListener("input", showSimilar);
+$("#p-nombre").addEventListener("input", avisoNombreRepetido);
 $("#p-categoria").addEventListener("input", showSimilar);
+$("#p-categoria").addEventListener("input", renderCatChips);
+// Categorías que ya se usan, para elegir tocando. Las que solo cambian en mayúsculas o tildes
+// («colchones», «Colchones») cuentan como una, con la escritura más usada.
+function categoriasUsadas(exceptoId) {
+  const m = new Map();
+  S.products.forEach(p => {
+    if (p.id === exceptoId) return;
+    const c = (p.categoria || "").trim(); if (!c) return;
+    const k = norm(c), e = m.get(k) || { n: 0, formas: new Map() };
+    e.n++; e.formas.set(c, (e.formas.get(c) || 0) + 1); m.set(k, e);
+  });
+  return [...m].map(([k, e]) => ({ k, nombre: [...e.formas].sort((a, b) => b[1] - a[1])[0][0], n: e.n }))
+    .sort((a, b) => b.n - a.n || a.nombre.localeCompare(b.nombre, "es"));
+}
+// lo escrito se guarda con la escritura de la categoría que ya existe
+function categoriaCanonica(texto) {
+  // sin contar el producto que se edita: así se puede corregir la escritura de una categoría propia
+  const k = norm(texto), c = k && categoriasUsadas(editing && editing.id).find(x => x.k === k);
+  return c ? c.nombre : texto.trim();
+}
+const CAT_VISIBLES = 10;
+let catTodas = false;
+function renderCatChips() {
+  const box = $("#p-cats"), escrito = norm($("#p-categoria").value), todas = categoriasUsadas();
+  const elegida = todas.find(c => c.k === escrito);
+  // mientras se escribe una que no existe, solo las que la contienen
+  const filtradas = escrito && !elegida ? todas.filter(c => c.k.includes(escrito)) : todas;
+  let lista = catTodas ? filtradas : filtradas.slice(0, CAT_VISIBLES);
+  if (elegida && !lista.includes(elegida)) lista = [elegida, ...lista];
+  const ocultas = filtradas.length - lista.filter(c => filtradas.includes(c)).length;
+  const mas = ocultas ? `<button type="button" class="pick-more" data-cat-more>+ ${ocultas} más</button>`
+    : catTodas && filtradas.length > CAT_VISIBLES ? `<button type="button" class="pick-more" data-cat-more>Ver menos</button>` : "";
+  box.hidden = !lista.length;
+  box.innerHTML = `<span class="cat-chips-label">${escrito && !elegida ? "Parecidas que ya usas" : "Tus categorías"}</span>
+    <div class="pick-chips">${lista.map(c => `<button type="button" data-cat="${esc(c.nombre)}" aria-pressed="${c === elegida}" title="${c.n} producto${c.n === 1 ? "" : "s"}">${esc(c.nombre)} <span class="n">${c.n}</span></button>`).join("")}${mas}</div>`;
+}
 $("#p-cancel").onclick = () => dlg.close();
 function showFoto() {
   const prev = $("#p-foto-prev");
@@ -1826,10 +1988,13 @@ $("#pform").addEventListener("submit", async e => {
   e.preventDefault();
   const nombre = $("#p-nombre").value.trim();
   if (!nombre) { const er = $("#p-err"); er.textContent = "Escribe el nombre del producto."; er.hidden = false; return; }
+  // los repetidos que ya existían se pueden seguir editando mientras no se toque el nombre
+  const repetido = avisoNombreRepetido();
+  if (repetido && (!editing || norm(nombre) !== norm(editing.nombre))) { $("#p-nombre").focus(); return; }
   const p = {
     ...(editing || {}),
     id: editing ? editing.id : uid(),
-    nombre, categoria: $("#p-categoria").value.trim(), codigo: $("#p-codigo").value.trim(),
+    nombre, categoria: categoriaCanonica($("#p-categoria").value), codigo: $("#p-codigo").value.trim(),
     precio: n2($("#p-precio").value), stock: n2($("#p-stock").value), minimo: n2($("#p-minimo").value),
     unidad: $("#p-unidad").value, actualizado: new Date().toISOString(),
   };
@@ -1843,8 +2008,11 @@ $("#pform").addEventListener("submit", async e => {
   if (webVinculada()) { if ($("#p-web").checked) p.web = true; else delete p.web; }
   delete p.ejemplo;
   const btn = $("#p-save"); btn.disabled = true;
-  try { await putProduct(p); dlg.close(); toast(editing ? "Producto actualizado" : "Producto guardado"); }
-  catch (err) { const er = $("#p-err"); er.textContent = failMsg(err); er.hidden = false; }
+  try { await putProductUnico(p, editing); dlg.close(); toast(editing ? "Producto actualizado" : "Producto guardado"); }
+  catch (err) {
+    if (err.aviso) { const a = $("#p-nombre-aviso"); a.textContent = err.aviso; a.hidden = false; $("#p-nombre").focus(); }
+    else { const er = $("#p-err"); er.textContent = failMsg(err); er.hidden = false; }
+  }
   finally { btn.disabled = false; }
 });
 
@@ -5197,6 +5365,7 @@ function escucharDatos() {
     if (usuarioActual()) { if (first || $("#authScreen")) renderApp(); else { aplicarPermisosUI(); renderAll(); } }
     else if (fbMode) fbSinAcceso();
     else renderLogin();
+    if (first && fbMode) setTimeout(nombresReservarExistentes, 4000);
   };
   const sinPermiso = e => fbMode && e && e.code === "permission-denied" && fbSinAcceso();
   db.collection("products").onSnapshot(snap => {

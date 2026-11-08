@@ -103,6 +103,12 @@ service cloud.firestore {
         allow update: if admin(nid) || (miembro(nid) && soloCambia(['stock', 'variantes', 'actualizado']));
       }
 
+      // nombres reservados: evita que dos equipos creen a la vez productos con el mismo nombre
+      match /nombres/{clave} {
+        allow read: if miembro(nid);
+        allow write: if admin(nid);
+      }
+
       match /notes/{id} {
         allow read: if miembro(nid);
         allow create: if admin(nid)
