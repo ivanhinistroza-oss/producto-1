@@ -381,10 +381,20 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
 .pick-chips button[aria-pressed="true"] .sw{border-color:#fff}
 .pick-other{display:flex;gap:6px;margin-top:6px}
 .pick-other input{flex:1;min-width:0;padding:6px 10px}
-.var-rows{display:grid;gap:6px;margin-top:4px}
-.var-edit{display:grid;grid-template-columns:minmax(0,1.3fr) 70px 88px minmax(0,1fr) 34px;gap:6px;align-items:center}
+.var-rows{display:grid;gap:5px;margin-top:4px}
+.var-edit{display:grid;grid-template-columns:minmax(64px,.8fr) 72px 84px minmax(150px,1.5fr) 34px;gap:6px;align-items:center}
 .var-edit input{padding:6px 8px;min-width:0;width:100%}
-.var-edit .var-name{font-weight:600;font-size:13.5px;overflow-wrap:anywhere}
+.var-edit input[data-vfield="codigo"]{font:13px var(--f-mono);font-variant-numeric:tabular-nums}
+.var-edit .var-name{display:flex;align-items:center;gap:6px;min-width:0;font-weight:600;font-size:13.5px;overflow-wrap:anywhere}
+.var-edit .var-name .sw{margin-right:0;flex:none}
+/* agrupadas por color: el color va en el título del grupo y cada fila solo dice la talla */
+.var-group{display:flex;align-items:center;gap:8px;margin-top:10px;padding-bottom:5px;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px}
+.var-group:first-child{margin-top:2px}
+.var-group .sw{margin-right:0}
+.var-group .muted{margin-left:auto;font-weight:500;font-size:12.5px;font-variant-numeric:tabular-nums}
+.var-rows.agrupado .var-edit:not([data-loose]) .var-name{padding-left:18px;font-weight:500}
+.var-rows.agrupado .var-edit:not([data-loose]) .var-name .sw{display:none}
+.pick-chips button.pick-more{border-style:dashed;color:var(--muted)}
 .var-edit .var-loose{display:flex;gap:4px;min-width:0}
 .var-edit .x{width:34px;height:34px;padding:0;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:15px}
 .var-edit .x:hover{color:var(--bad);border-color:var(--bad)}
@@ -393,9 +403,20 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
   .var-matrix td{min-width:42px}
   .var-matrix td input{width:44px}
   .var-matrix th{padding:4px 4px}
-  .var-edit{grid-template-columns:70px 88px minmax(0,1fr) 34px}
-  .var-edit > :first-child{grid-column:1 / -1}
-  .var-edit.head{display:none}
+  /* celular: talla, stock, precio y quitar en una línea; el código debajo, a lo ancho */
+  .var-edit{grid-template-columns:64px minmax(0,1fr) minmax(0,1fr) 34px;row-gap:4px}
+  .var-edit:not([data-loose]) .var-name{grid-row:1 / 3;align-self:start;padding-top:8px}
+  .var-edit:not([data-loose]) [data-vfield="codigo"]{grid-column:2 / 4;grid-row:2}
+  .var-edit:not([data-loose]) .x{grid-column:4;grid-row:1}
+  .var-edit[data-loose] > :first-child{grid-column:1 / -1}
+  .var-edit[data-loose] [data-vfield="codigo"]{grid-column:1 / 4}
+  .var-rows.agrupado .var-edit:not([data-loose]) .var-name{padding-left:4px}
+  .var-rows{gap:0}
+  .var-rows .var-edit{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .var-rows .var-edit:last-child,.var-rows .var-edit:has(+ .var-group){border-bottom:0}
+  .var-group{margin-top:8px}
+  .var-edit.head{grid-template-columns:64px minmax(0,1fr) minmax(0,1fr) 34px}
+  .var-edit.head span:nth-child(4){display:none}
 }
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);padding:28px 20px;text-align:center;color:var(--muted)}
 .empty h2{color:var(--fg);margin-bottom:6px}
@@ -1053,6 +1074,7 @@ async function flushStockDelta(key) {
     const [id, variantId] = key.split(":");
     // en modo local la pantalla y los datos son el mismo objeto: el valor ya está aplicado, solo falta guardarlo
     if (!db) { syncMem(); return; }
+    if (usaTransacciones()) { await fbMovimiento({ deltas: new Map([[key, entry.delta]]), piso0: true }); return; }
     const p = await readProduct(id); if (!p) return;
     if (variantId) {
       const v = (p.variantes || []).find(x => x.id === variantId); if (!v) return;
@@ -1608,6 +1630,8 @@ function openVariantEditor(p) {
   rows.forEach(r => { if (!all.has(comboKey(rowVal(r, "talla"), rowVal(r, "color")))) setLoose(r); });
   // las combinaciones que el producto no tiene no se agregan solas al tocar otra talla o color
   all.forEach(k => { if (!have.has(k)) pick.skip.add(k); });
+  pick.masColores = false;
+  layoutVariantRows();
   $("#p-variations").open = vs.length > 0;
   renderPick();
 }
@@ -1625,10 +1649,53 @@ function renderPick() {
   const fuera = pick.tallas.filter(t => !on(TALLAS[pick.set], t) && !on(usadasT, t)); // elegidas de otro grupo: siguen a la vista
   $("#p-tallaset").innerHTML = Object.keys(TALLAS).map(k => `<button type="button" data-tallaset="${esc(k)}" aria-pressed="${k === pick.set}">${esc(k)}</button>`).join("");
   $("#p-tallas").innerHTML = uniq([...TALLAS[pick.set], ...fuera, ...usadasT]).sort(byTalla).map(t => chip("talla", t, pick.tallas)).join("");
-  $("#p-colores").innerHTML = [...Object.keys(COLORES), ...usadasC].map(c => chip("color", c, pick.colores, swatch(c))).join("");
+  // los colores más comunes, los elegidos y los propios a la vista; el resto detrás de «+ N colores más»
+  const todos = [...Object.keys(COLORES), ...usadasC];
+  const visibles = pick.masColores ? todos : todos.filter((c, i) => i < 8 || on(pick.colores, c) || usadasC.includes(c));
+  const ocultos = todos.length - visibles.length;
+  const mas = ocultos ? `<button type="button" class="pick-more" data-pick-more>+ ${ocultos} colores más</button>`
+    : pick.masColores ? `<button type="button" class="pick-more" data-pick-more>Menos colores</button>` : "";
+  $("#p-colores").innerHTML = visibles.map(c => chip("color", c, pick.colores, swatch(c))).join("") + mas;
+  updateVariantSummary();
+}
+// ordena las filas por color y talla; si algún color tiene varias tallas, las agrupa bajo el color con su total
+function layoutVariantRows() {
+  const box = $("#p-variants");
+  box.querySelectorAll(".var-group").forEach(g => g.remove());
+  const rows = [...box.querySelectorAll("[data-variant-row]")];
+  const fijas = rows.filter(r => !("loose" in r.dataset))
+    .sort((a, b) => byColor(rowVal(a, "color"), rowVal(b, "color")) || byTalla(rowVal(a, "talla"), rowVal(b, "talla")));
+  const sueltas = rows.filter(r => "loose" in r.dataset);
+  const colores = uniq(fijas.map(r => rowVal(r, "color")));
+  const agrupar = colores.some(Boolean) && fijas.length > colores.length;
+  box.classList.toggle("agrupado", agrupar);
+  const grupo = (html, color) => {
+    const g = document.createElement("div");
+    g.className = "var-group";
+    g.innerHTML = (color ? swatch(color) : "") + `<span>${html}</span><span class="muted" data-group-total></span>`;
+    box.append(g);
+  };
+  let actual = null;
+  fijas.forEach(r => {
+    const t = rowVal(r, "talla"), c = rowVal(r, "color");
+    if (agrupar && norm(c) !== actual) { actual = norm(c); grupo(esc(c || "Sin color"), c); }
+    r.querySelector(".var-label").textContent = agrupar ? (t || "Sin talla") : [t, c].filter(Boolean).join(" / ");
+    box.append(r);
+  });
+  if (agrupar && sueltas.length) grupo("Agregadas a mano");
+  sueltas.forEach(r => box.append(r));
+  $("#p-var-head").firstElementChild.textContent = agrupar ? "Talla" : "Combinación";
   updateVariantSummary();
 }
 function updateVariantSummary() {
+  // total de cada grupo de color
+  let g = null;
+  const tot = new Map();
+  for (const el of $("#p-variants").children) {
+    if (el.classList.contains("var-group")) { g = el; tot.set(g, 0); }
+    else if (g && "variantRow" in el.dataset) tot.set(g, tot.get(g) + n2(rowVal(el, "stock")));
+  }
+  tot.forEach((n, el) => { el.querySelector("[data-group-total]").textContent = qty(n) + " und"; });
   const rows = $("#p-variants").querySelectorAll("[data-variant-row]");
   $("#p-var-head").hidden = !rows.length;
   $("#p-var-sum").textContent = rows.length ? `Tallas y colores · ${rows.length} ${rows.length === 1 ? "combinación" : "combinaciones"}` : "Tallas y colores (opcional)";
@@ -1648,17 +1715,13 @@ function syncVariantRows() {
   });
   const have = new Set([...box.querySelectorAll("[data-variant-row]")].map(r => comboKey(rowVal(r, "talla"), rowVal(r, "color"))));
   want.forEach(([talla, color]) => { if (!have.has(comboKey(talla, color))) addVariantEditor({ talla, color, stock: 0 }, true); });
-  [...box.querySelectorAll("[data-variant-row]:not([data-loose])")]
-    .sort((a, b) => byTalla(rowVal(a, "talla"), rowVal(b, "talla")) || byColor(rowVal(a, "color"), rowVal(b, "color")))
-    .forEach(r => box.append(r));
-  box.querySelectorAll("[data-loose]").forEach(r => box.append(r));
   if (perdido) toast("Se quitaron combinaciones que tenían stock. Si fue un error, toca Cancelar.");
-  updateVariantSummary();
+  layoutVariantRows();
 }
 function setLoose(row) {
   const t = rowVal(row, "talla"), c = rowVal(row, "color");
   row.dataset.loose = "";
-  row.firstElementChild.outerHTML = `<div class="var-loose"><input data-vfield="talla" value="${esc(t)}" placeholder="Talla" aria-label="Talla"><input data-vfield="color" value="${esc(c)}" placeholder="Color" aria-label="Color"></div>`;
+  row.firstElementChild.outerHTML = `<div class="var-loose"><input type="text" data-vfield="talla" value="${esc(t)}" placeholder="Talla" aria-label="Talla"><input type="text" data-vfield="color" value="${esc(c)}" placeholder="Color" aria-label="Color"></div>`;
 }
 function addVariantEditor(v = {}, auto = false) {
   const row = document.createElement("div");
@@ -1666,10 +1729,10 @@ function addVariantEditor(v = {}, auto = false) {
   row.dataset.variantRow = "";
   row.dataset.variantId = v.id || uid();
   const name = [v.talla, v.color].filter(Boolean).join(" / ");
-  row.innerHTML = `<div class="var-name">${v.color ? swatch(v.color) : ""}${esc(name)}<input type="hidden" data-vfield="talla" value="${esc(v.talla || "")}"><input type="hidden" data-vfield="color" value="${esc(v.color || "")}"></div>
+  row.innerHTML = `<div class="var-name">${v.color ? swatch(v.color) : ""}<span class="var-label">${esc(name)}</span><input type="hidden" data-vfield="talla" value="${esc(v.talla || "")}"><input type="hidden" data-vfield="color" value="${esc(v.color || "")}"></div>
     <input data-vfield="stock" type="number" min="0" step="1" inputmode="numeric" value="${n2(v.stock)}" aria-label="Stock ${esc(name)}">
     <input data-vfield="precio" type="number" min="0" step="0.01" inputmode="decimal" value="${v.precio == null ? "" : n2(v.precio)}" placeholder="Igual" aria-label="Precio ${esc(name)} (vacío = precio del producto)">
-    <input data-vfield="codigo" value="${esc(v.codigo || "")}" placeholder="Opcional" aria-label="Código ${esc(name)}">
+    <input type="text" data-vfield="codigo" value="${esc(v.codigo || "")}" placeholder="Código (opcional)" aria-label="Código ${esc(name)}">
     <button type="button" class="x" data-rmvariant aria-label="Quitar ${esc(name || "combinación")}">✕</button>`;
   $("#p-variants").append(row);
   if (!auto) { setLoose(row); row.querySelector("input").focus(); }
@@ -1677,6 +1740,7 @@ function addVariantEditor(v = {}, auto = false) {
 document.getElementById("pform").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.tallaset) { pick.set = b.dataset.tallaset; return renderPick(); }
+  if ("pickMore" in b.dataset) { pick.masColores = !pick.masColores; return renderPick(); }
   if (b.dataset.pick) {
     const list = b.dataset.pick === "talla" ? pick.tallas : pick.colores, x = b.dataset.value, i = list.findIndex(y => norm(y) === norm(x));
     if (i >= 0) list.splice(i, 1); else list.push(x);
@@ -1694,12 +1758,17 @@ document.getElementById("pform").addEventListener("click", e => {
 ["#p-talla-otra", "#p-color-otro"].forEach(sel => $(sel).addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); e.target.nextElementSibling.click(); }
 }));
-$("#p-addvariant").onclick = () => { addVariantEditor(); updateVariantSummary(); };
+$("#p-addvariant").onclick = () => {
+  addVariantEditor();
+  layoutVariantRows();
+  const nueva = [...$("#p-variants").querySelectorAll("[data-loose]")].pop();
+  if (nueva) nueva.querySelector("input").focus();
+};
 $("#p-variants").addEventListener("click", e => {
   const row = e.target.closest("[data-rmvariant]") && e.target.closest("[data-variant-row]"); if (!row) return;
   // una combinación quitada a mano no vuelve a aparecer al tocar otra talla o color
   if (!("loose" in row.dataset)) pick.skip.add(comboKey(rowVal(row, "talla"), rowVal(row, "color")));
-  row.remove(); updateVariantSummary();
+  row.remove(); layoutVariantRows();
 });
 $("#p-variants").addEventListener("input", e => { if (e.target.dataset.vfield === "stock") updateVariantSummary(); });
 function showSimilar() {
@@ -2055,7 +2124,7 @@ $("#p-var-crear").addEventListener("click", () => {
 });
 // lee los códigos de fábrica uno por uno y avisa qué combinación toca
 $("#p-var-scan").addEventListener("click", () => {
-  const nombre = fila => fila.querySelector(".var-name").textContent.trim() || "esta combinación";
+  const nombre = fila => [rowVal(fila, "talla"), rowVal(fila, "color")].filter(Boolean).join(" / ") || "esta combinación";
   const faltan = () => [...$("#p-variants").querySelectorAll("[data-variant-row]")].filter(f => !f.querySelector('[data-vfield="codigo"]').value.trim());
   if (!faltan().length) return toast("Todas las combinaciones ya tienen código");
   abrirEscaner(codigo => {
@@ -2383,23 +2452,28 @@ async function emitNote(btn) {
   };
   try {
     await flushPendingStock();
-    const freshNotes = await readNotes();
-    note.folio = nextFreeFolio(freshNotes);
     note.vendedorId = usuarioActual()?.id;
     note.vendedorNombre = usuarioActual()?.nombre;
-    saleAdjusting = true;
-    const changed = await adjustStock(items, -1);
-    try {
-      const latestNotes = await readNotes();
-      if (latestNotes.some(n => n2(n.folio) === n2(note.folio))) note.folio = nextFreeFolio(latestNotes);
-      await putNote(note);
+    if (usaTransacciones()) {
+      const r = await fbMovimiento({ deltas: deltasDe(items, -1), nota: note });
+      note.id = r.id; note.folio = r.folio;
+    } else {
+      const freshNotes = await readNotes();
+      note.folio = nextFreeFolio(freshNotes);
+      saleAdjusting = true;
+      const changed = await adjustStock(items, -1);
+      try {
+        const latestNotes = await readNotes();
+        if (latestNotes.some(n => n2(n.folio) === n2(note.folio))) note.folio = nextFreeFolio(latestNotes);
+        await putNote(note);
+      }
+      catch (err) {
+        await restoreProducts(changed);
+        try { await deleteNote(note.id); } catch {}
+        throw err;
+      }
+      saleAdjusting = false;
     }
-    catch (err) {
-      await restoreProducts(changed);
-      try { await deleteNote(note.id); } catch {}
-      throw err;
-    }
-    saleAdjusting = false;
     // la cotización de la que salió la venta queda marcada como vendida
     if (fromQuote) { try { await patchQuote(fromQuote, { estado: "vendida", notaId: note.id, notaFolio: note.folio }); } catch {} }
     draft = blankDraft(); saveDraft();
@@ -2450,6 +2524,151 @@ async function adjustStock(items, sign) {
   } catch (err) { await restoreProducts(snapshots); throw err; }
   return snapshots;
 }
+
+// ---------- Firebase: venta, anulación y conteo, todo junto o nada ----------
+// Con internet va en una transacción: si otro equipo cambió el mismo producto o tomó el mismo folio,
+// Firebase la repite con los datos nuevos, así nunca se pisan el stock ni se repite el número de nota.
+// Sin internet no hay transacciones: va en un lote, que también se guarda entero o nada y se envía al volver la conexión.
+const usaTransacciones = () => !!(fbMode && fb && fb.negocioId && db);
+const sinRed = e => !navigator.onLine || /unavailable|deadline-exceeded/.test(String((e && e.code) || ""));
+const FOLIO_ID = folio => "folio-" + folio;
+function deltasDe(items, sign) {
+  const deltas = new Map();
+  items.forEach(i => {
+    if (!i.productId) return;
+    const key = i.productId + ":" + (i.variantId || "");
+    deltas.set(key, (deltas.get(key) || 0) + sign * n2(i.cant));
+  });
+  return deltas;
+}
+// agrupa los cambios por producto: Map(id → [{ vid, d }])
+function deltasPorProducto(deltas) {
+  const porId = new Map();
+  for (const [key, d] of deltas) {
+    const [id, vid] = key.split(":");
+    if (!porId.has(id)) porId.set(id, []);
+    porId.get(id).push({ vid, d });
+  }
+  return porId;
+}
+// calcula el stock nuevo de un producto leído; piso0 = el conteo manual no baja de cero
+function parcheStock(p, cambios, piso0) {
+  const r = x => Math.round(x * 1000) / 1000;
+  const ajusta = (actual, d) => piso0 ? Math.max(0, r(n2(actual) + d)) : r(n2(actual) + d);
+  const patch = { actualizado: new Date().toISOString() };
+  if (cambios.some(c => c.vid)) {
+    const variantes = (p.variantes || []).map(v => ({ ...v }));
+    for (const c of cambios) {
+      const v = variantes.find(x => x.id === c.vid);
+      if (!v) throw new Error("Producto o variante no disponible");
+      v.stock = ajusta(v.stock, c.d);
+    }
+    patch.variantes = variantes;
+    patch.stock = totalStock({ variantes });
+  } else {
+    patch.stock = ajusta(p.stock, cambios.reduce((a, c) => a + c.d, 0));
+  }
+  return patch;
+}
+// deltas: Map("producto:variante" → cambio). nota: venta nueva. anular: nota que se anula.
+// Devuelve el id y el folio con que quedó guardada la venta.
+async function fbMovimiento({ deltas, nota = null, anular = null, piso0 = false, soloEnLinea = false }) {
+  if (soloEnLinea && !navigator.onLine) throw Object.assign(new Error("Sin conexión"), { code: "unavailable" });
+  const { F, fs } = fb, base = "negocios/" + fb.negocioId + "/";
+  const prodRef = id => F.doc(fs, base + "products/" + id);
+  const porId = deltasPorProducto(deltas);
+  const anuladaEn = new Date().toISOString();
+  if (navigator.onLine) {
+    try {
+      // el folio parte de la nota más alta del servidor; la transacción confirma que nadie lo tomó
+      let desde = 0;
+      if (nota) {
+        const ult = await db.lastNotes();
+        desde = Math.max(ult[0] ? n2(ult[0].folio) : 0, ...S.notes.map(n => n2(n.folio))) + 1;
+      }
+      return await F.runTransaction(fs, async tx => {
+        // Firebase exige hacer todas las lecturas antes de escribir
+        let folio = desde, notaRef = null;
+        if (nota) {
+          for (let intento = 0; ; intento++) {
+            notaRef = F.doc(fs, base + "notes/" + FOLIO_ID(folio));
+            if (!(await tx.get(notaRef)).exists()) break;
+            if (intento > 50) throw new Error("No se encontró un número de nota libre");
+            folio++;
+          }
+        }
+        let anularRef = null;
+        if (anular) {
+          anularRef = F.doc(fs, base + "notes/" + anular.id);
+          const s = await tx.get(anularRef);
+          if (!s.exists()) throw Object.assign(new Error("La nota ya no existe."), { aviso: "Esa nota ya no existe." });
+          if (s.data().estado === "anulada") throw Object.assign(new Error("Ya anulada"), { aviso: "Esa nota ya fue anulada en otro equipo; el stock no se devolvió dos veces." });
+        }
+        const parches = [];
+        for (const [id, cambios] of porId) {
+          const s = await tx.get(prodRef(id));
+          if (!s.exists()) throw new Error("Producto o variante no disponible");
+          parches.push([id, parcheStock(s.data(), cambios, piso0)]);
+        }
+        parches.forEach(([id, patch]) => tx.update(prodRef(id), patch));
+        if (nota) { const body = { ...nota, folio }; delete body.id; tx.set(notaRef, body); }
+        if (anular) tx.update(anularRef, { estado: "anulada", anulada: anuladaEn });
+        return { id: notaRef ? notaRef.id : null, folio };
+      });
+    } catch (e) { if (!sinRed(e) || soloEnLinea) throw e; }
+  }
+  // sin internet: lote con lo que hay en este equipo. El folio puede coincidir con el de otro equipo
+  // que también vendió sin internet, pero ninguna nota se pierde (cada una tiene su propio id).
+  // El stock simple se suma con increment, que Firebase combina con lo de otros equipos.
+  // Las tallas viven en una lista que no se puede sumar por partes: escribir la lista de este equipo
+  // borraría lo que vendió otro, así que ese cambio espera en una cola y se aplica con transacción al volver internet.
+  const batch = F.writeBatch(fs);
+  const enCola = new Map();
+  for (const [id, cambios] of porId) {
+    if (cambios.some(c => c.vid)) { cambios.forEach(c => enCola.set(id + ":" + (c.vid || ""), c.d)); continue; }
+    batch.update(prodRef(id), { stock: F.increment(Math.round(cambios.reduce((a, c) => a + c.d, 0) * 1000) / 1000), actualizado: new Date().toISOString() });
+  }
+  if (enCola.size) {
+    const cola = pendLeer();
+    cola.push({ id: uid(), nid: fb.negocioId, deltas: [...enCola], piso0 });
+    pendGuardar(cola);
+    toast("Sin internet: el stock por talla se actualizará al volver la conexión");
+  }
+  let r = { id: null, folio: 0 };
+  if (nota) {
+    r = { id: nota.id, folio: nextFolio() };
+    const body = { ...nota, folio: r.folio }; delete body.id;
+    batch.set(F.doc(fs, base + "notes/" + nota.id), body);
+  }
+  if (anular) {
+    if (anular.estado === "anulada") throw Object.assign(new Error("Ya anulada"), { aviso: "Esa nota ya estaba anulada." });
+    batch.update(F.doc(fs, base + "notes/" + anular.id), { estado: "anulada", anulada: anuladaEn });
+  }
+  if (porId.size > enCola.size || nota || anular) await fbWrite(batch.commit());
+  return r;
+}
+// cola de cambios de stock por talla hechos sin internet (sobrevive si se cierra la app)
+const PEND_KEY = "mostrador.stockPendiente";
+function pendLeer() { try { return JSON.parse(localStorage.getItem(PEND_KEY) || "[]"); } catch { return []; } }
+function pendGuardar(lista) { try { localStorage.setItem(PEND_KEY, JSON.stringify(lista)); } catch {} }
+let pendEnviando = false;
+async function stockPendienteEnviar() {
+  if (pendEnviando || !usaTransacciones() || !navigator.onLine) return;
+  pendEnviando = true;
+  try {
+    for (const m of pendLeer()) {
+      if (m.nid !== fb.negocioId) continue;
+      try { await fbMovimiento({ deltas: new Map(m.deltas), piso0: m.piso0, soloEnLinea: true }); }
+      catch (e) {
+        // sin red o sin permiso: queda en la cola para el próximo intento
+        if (sinRed(e) || String(e && e.code).includes("permission")) break;
+        // el producto o la talla ya no existe: no hay a qué aplicarlo
+      }
+      pendGuardar(pendLeer().filter(x => x.id !== m.id));
+    }
+  } finally { pendEnviando = false; }
+}
+addEventListener("online", () => setTimeout(stockPendienteEnviar, 1500));
 
 // ---------- ticket ----------
 // Monto en letras como en las boletas: 120.5 → "CIENTO VEINTE CON 50/100 SOLES".
@@ -2730,15 +2949,18 @@ $("#v-notas").addEventListener("click", async e => {
     t.disabled = true;
     try {
       await flushPendingStock();
-      const changed = await adjustStock(sel.items, +1);
-      try { await putNote({ ...sel, items: sel.items.map(i => ({ ...i })), estado: "anulada", anulada: new Date().toISOString() }); }
-      catch (err) {
-        await restoreProducts(changed);
-        try { await putNote(sel); } catch {}
-        throw err;
+      if (usaTransacciones()) await fbMovimiento({ deltas: deltasDe(sel.items, +1), anular: sel });
+      else {
+        const changed = await adjustStock(sel.items, +1);
+        try { await putNote({ ...sel, items: sel.items.map(i => ({ ...i })), estado: "anulada", anulada: new Date().toISOString() }); }
+        catch (err) {
+          await restoreProducts(changed);
+          try { await putNote(sel); } catch {}
+          throw err;
+        }
       }
       toast("Nota anulada; el stock se devolvió al inventario");
-    } catch (err) { toast("No se pudo anular; se revirtieron los cambios. " + failMsg(err)); t.disabled = false; }
+    } catch (err) { toast(err.aviso || "No se pudo anular; no se cambió nada. " + failMsg(err)); t.disabled = false; }
   }
 });
 
@@ -5018,6 +5240,8 @@ function escucharDatos() {
     notasEscuchar(notasInicio);
     // el número de la próxima nota no depende de cuántas se hayan descargado
     db.lastNotes().then(r => { notasFolioMax = r[0] ? n2(r[0].folio) : 0; if (S.view === "venta") renderAll(); }).catch(() => {});
+    // cambios de stock por talla que quedaron pendientes de una venta o conteo sin internet
+    setTimeout(stockPendienteEnviar, 3000);
   } else db.collection("notes").onSnapshot(snap => {
     S.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     gotN = true; ready(); renderAll();
