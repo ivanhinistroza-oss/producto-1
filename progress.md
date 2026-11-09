@@ -8,8 +8,9 @@ Mostrador (`mostrador.html` + `css/` + `js/`) es una app de inventario y ventas 
 
 ## Estado actual (09-11-2026)
 
-- Último commit: 76c5d82 (app separada en varios archivos), ya publicado y comprobado en GitHub Pages.
-- Sin commitear: `sw.js` (caché `mostrador-v5`) siempre pregunta al servidor por la versión nueva; antes el navegador podía usar hasta 10 minutos una copia vieja. Probado con un servidor que imita a GitHub, también sin internet.
+- Todo subido a `master`. Últimos commits:
+  - 76c5d82: app separada en varios archivos;
+  - 463b19e: `sw.js` (caché `mostrador-v5`) siempre pregunta al servidor por la versión nueva; antes el navegador podía usar una copia vieja hasta 10 minutos. Probado con un servidor que imita a GitHub, también sin internet.
 - `CLAUDE.md` tiene cambios sin commitear (a propósito).
 - Commits desde PowerShell: escribe el mensaje con `[IO.File]::WriteAllText`, porque `Set-Content -Encoding utf8` mete un BOM al inicio.
 
