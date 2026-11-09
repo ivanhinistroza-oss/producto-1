@@ -8,14 +8,14 @@ Mostrador (`mostrador.html` + `css/` + `js/`) es una app de inventario y ventas 
 
 ## Estado actual (09-11-2026)
 
-- Último commit: ddb2330 (costo, ganancia y margen).
-- **Sin commitear: la app separada en varios archivos** (ver «Últimos cambios»). Falta que Iván diga si se sube.
+- Último commit: 76c5d82 (app separada en varios archivos), ya publicado y comprobado en GitHub Pages.
+- Sin commitear: `sw.js` (caché `mostrador-v5`) siempre pregunta al servidor por la versión nueva; antes el navegador podía usar hasta 10 minutos una copia vieja. Probado con un servidor que imita a GitHub, también sin internet.
 - `CLAUDE.md` tiene cambios sin commitear (a propósito).
 - Commits desde PowerShell: escribe el mensaje con `[IO.File]::WriteAllText`, porque `Set-Content -Encoding utf8` mete un BOM al inicio.
 
 ## Últimos cambios
 
-- **App separada en archivos (sin commit):**
+- **76c5d82, app separada en archivos:**
   - `mostrador.html` quedó solo con el HTML; los estilos están en `css/estilos.css`, y el código en 19 archivos dentro de `js/` (mapa en `CLAUDE.md`);
   - la app funciona igual: el código unido es idéntico al original, y las 10 vistas muestran el mismo texto que antes;
   - `sw.js` (caché `mostrador-v4`) guarda los archivos nuevos, y la página, el CSS y el JS van primero por la red, para que los celulares reciban los cambios;

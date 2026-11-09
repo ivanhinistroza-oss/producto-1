@@ -1,4 +1,4 @@
-const CACHE_NAME = "mostrador-v4";
+const CACHE_NAME = "mostrador-v5";
 // librerías de Firebase: se guardan para poder abrir la app sin internet
 const SDK_ORIGIN = "https://www.gstatic.com";
 const APP_FILES = [
@@ -35,7 +35,8 @@ const APP_FILES = [
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(APP_FILES);
+    // "reload": baja cada archivo del servidor, no de la caché del navegador (GitHub Pages la guarda 10 minutos)
+    await cache.addAll(APP_FILES.map(file => new Request(file, { cache: "reload" })));
     await self.skipWaiting();
   })());
 });
@@ -59,7 +60,8 @@ self.addEventListener("fetch", event => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       try {
-        const response = await fetch(request);
+        // "no-cache": siempre pregunta al servidor si hay una versión nueva, así la página y su código nunca se mezclan
+        const response = await fetch(request, { cache: "no-cache" });
         if (response.ok) await cache.put(request, response.clone());
         return response;
       } catch {
