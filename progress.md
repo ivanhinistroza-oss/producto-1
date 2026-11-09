@@ -4,17 +4,24 @@ Memoria de trabajo. Léela al empezar cada sesión y actualízala al terminar ca
 
 ## Objetivo
 
-Mostrador (`mostrador.html`) es una app de inventario y ventas para la tienda de Iván en Perú. Funciona en varios equipos con Firebase y se publica en https://ivanhinistroza-oss.github.io/producto-1/
+Mostrador (`mostrador.html` + `css/` + `js/`) es una app de inventario y ventas para la tienda de Iván en Perú. Funciona en varios equipos con Firebase y se publica en https://ivanhinistroza-oss.github.io/producto-1/
 
 ## Estado actual (09-11-2026)
 
-- Todo está commiteado y subido a `master`. Último commit: 21ed404 (agrega este archivo).
+- Último commit: ddb2330 (costo, ganancia y margen).
+- **Sin commitear: la app separada en varios archivos** (ver «Últimos cambios»). Falta que Iván diga si se sube.
 - `CLAUDE.md` tiene cambios sin commitear (a propósito).
 - Commits desde PowerShell: escribe el mensaje con `[IO.File]::WriteAllText`, porque `Set-Content -Encoding utf8` mete un BOM al inicio.
 
 ## Últimos cambios
 
-- **Sin commitear, costo y ganancia (09-11-2026):**
+- **App separada en archivos (sin commit):**
+  - `mostrador.html` quedó solo con el HTML; los estilos están en `css/estilos.css`, y el código en 19 archivos dentro de `js/` (mapa en `CLAUDE.md`);
+  - la app funciona igual: el código unido es idéntico al original, y las 10 vistas muestran el mismo texto que antes;
+  - `sw.js` (caché `mostrador-v4`) guarda los archivos nuevos, y la página, el CSS y el JS van primero por la red, para que los celulares reciban los cambios;
+  - el modo artifact de claude.ai (un solo archivo) ya no se mantiene.
+
+- **ddb2330, costo y ganancia:**
   - campo «Costo de compra» opcional en el producto (`p.costo`), con aviso de cuánto se gana por unidad;
   - cada venta guarda el costo en la línea (`item.costo`); las ventas antiguas usan el costo actual (`itemCosto`, `gananciaDe`);
   - Reportes: tarjeta «Ganancia» y reporte imprimible/Excel «Ganancias y márgenes» (con fila de descuentos);
@@ -42,6 +49,8 @@ Mostrador (`mostrador.html`) es una app de inventario y ventas para la tienda de
 
 ## Pendientes
 
+- **Iván prueba la app separada en archivos** en su celular y su computadora: entrar, vender, imprimir el ticket y las etiquetas. Si el celular muestra la versión vieja, debe cerrar la app y volver a abrirla.
+
 - **Iván prueba en su cuenta real:**
   - ventas desde dos equipos;
   - nombres repetidos;
@@ -61,4 +70,4 @@ Mostrador (`mostrador.html`) es una app de inventario y ventas para la tienda de
 - **Deuda de código:** `renderResumen` está en una sola línea enorme.
 - **Detalles por corregir:**
   - el README dice rama `main`, pero es `master`;
-  - el artifact de claude.ai está desactualizado.
+  - el artifact de claude.ai está desactualizado y ya no se mantiene, porque la app ya no es un solo archivo.

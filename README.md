@@ -4,7 +4,7 @@ Aplicación web sencilla de inventario y notas de venta. No necesita servidor ni
 
 ## Publicar en GitHub Pages
 
-1. Sube `index.html` y `mostrador.html` a la rama `master` del repositorio.
+1. Sube `index.html`, `mostrador.html`, `sw.js`, `manifest.json` y las carpetas `css/`, `js/` e `icons/` a la rama `master` del repositorio.
 2. Abre **Settings > Pages**.
 3. En **Build and deployment**, selecciona **Deploy from a branch**.
 4. Selecciona la rama **master** y la carpeta **/ (root)**; guarda.

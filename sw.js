@@ -1,9 +1,29 @@
-const CACHE_NAME = "mostrador-v3";
+const CACHE_NAME = "mostrador-v4";
 // librerías de Firebase: se guardan para poder abrir la app sin internet
 const SDK_ORIGIN = "https://www.gstatic.com";
 const APP_FILES = [
   "./index.html",
   "./mostrador.html",
+  "./css/estilos.css",
+  "./js/base.js",
+  "./js/inventario.js",
+  "./js/producto.js",
+  "./js/codigos.js",
+  "./js/venta.js",
+  "./js/impresion.js",
+  "./js/notas.js",
+  "./js/cotizaciones.js",
+  "./js/excel.js",
+  "./js/reportes.js",
+  "./js/usuarios.js",
+  "./js/resumen.js",
+  "./js/ventas.js",
+  "./js/caja.js",
+  "./js/navegacion.js",
+  "./js/firebase.js",
+  "./js/web.js",
+  "./js/cuentas.js",
+  "./js/arranque.js",
   "./manifest.json",
   "./icons/icon.svg",
   "./icons/icon-192.png",
@@ -34,7 +54,8 @@ self.addEventListener("fetch", event => {
   const sdk = url.origin === SDK_ORIGIN && url.pathname.startsWith("/firebasejs/");
   const lector = /^https:\/\/(cdn|fastly)\.jsdelivr\.net$/.test(url.origin) && /^\/npm\/(barcode-detector|zxing-wasm)@/.test(url.pathname);
   if (request.method !== "GET" || (url.origin !== self.location.origin && !sdk && !lector)) return;
-  if (request.mode === "navigate" || /\.html(?:$|[?#])/.test(new URL(request.url).pathname)) {
+  // la página, sus estilos y su código: primero la red (para recibir cambios), sin internet la copia guardada
+  if (request.mode === "navigate" || (url.origin === self.location.origin && /\.(?:html|js|css)$/.test(url.pathname))) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
       try {
