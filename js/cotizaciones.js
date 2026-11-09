@@ -251,16 +251,6 @@ function renderQuoteEditor() {
     </div>`;
   if (focusId && document.getElementById(focusId)) { const i = document.getElementById(focusId); i.focus(); try { i.setSelectionRange(caret, caret); } catch {} }
 }
-function quoteWhatsappText(q) {
-  const lines = (q.items || []).map(i => `• ${i.nombre} × ${qty(i.cant)} = ${money(n2(i.cant) * n2(i.precio))}`);
-  return [
-    `Hola${q.cliente ? " " + q.cliente : ""}, te envío la cotización ${quoteNum(q.numero)} de ${S.settings.negocio}:`,
-    "", ...lines, "",
-    ...(n2(q.descuento) ? ["Descuento: " + money(q.descuento)] : []),
-    "Total: " + money(q.total),
-    "Válida hasta: " + fmtDay(quoteExpiry(q)),
-  ].join("\n");
-}
 // html2pdf se carga solo la primera vez que se envía una cotización.
 let html2pdfLoad = null;
 function loadHtml2pdf() {

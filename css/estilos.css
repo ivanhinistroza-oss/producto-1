@@ -84,8 +84,6 @@ nav.tabs button:hover{background:var(--surface-2);color:var(--fg)}
 .sales-chart.compara .sales-bar.zero{box-shadow:none}
 .sales-xlabels{display:flex;padding-left:64px;min-width:664px}
 .sales-xlabels span{flex:1;min-width:10px;text-align:center;font-size:10px;color:var(--muted);white-space:nowrap}
-.sales-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.sales-controls .seg button{padding:7px 9px}
 .sales-table tbody tr{cursor:pointer}
 .sales-table tbody tr:hover{background:var(--surface-2)}
 .sales-summary{display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

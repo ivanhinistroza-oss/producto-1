@@ -190,15 +190,8 @@ function cerrarSesion() {
 function renderLogin(error = "") {
   // con Firebase, las pantallas de cuenta las decide onAuthStateChanged
   if (fbMode) return fbCargando();
-  document.querySelector("header.top").hidden = true;
-  document.querySelector("main.wrap").hidden = true;
-  let el = $("#authScreen");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "authScreen";
-    el.className = "auth-screen";
-    document.body.append(el);
-  }
+  // fbPantalla (cuentas.js) oculta la app y prepara el recuadro; sirve también sin Firebase
+  const el = fbPantalla("");
   const first = !S.users.length;
   const nameField = first ? '<label class="f"><span>Nombre</span><input name="nombre" required></label>' : "";
   const confirmField = first ? '<label class="f"><span>Confirmar PIN</span><input name="confirmacion" type="password" minlength="4" maxlength="12" required></label>' : "";
