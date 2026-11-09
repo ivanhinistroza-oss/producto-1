@@ -442,6 +442,8 @@ dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 @media (max-width:480px){.grid2,.grid3{grid-template-columns:minmax(0,1fr)}}
+.costo-margen{margin:0;align-self:end;padding-bottom:10px;font-size:13px}
+.rep-mini{margin:12px 0 6px;font-size:13px}
 .similar{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
 .similar ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
 .similar li{display:flex;justify-content:space-between;gap:10px}
@@ -670,6 +672,10 @@ body{height:100dvh;overflow:hidden}
       <label class="f"><span>Precio de venta</span><input type="number" id="p-precio" min="0" step="0.01" inputmode="decimal"></label>
       <label class="f"><span>Stock actual</span><input type="number" id="p-stock" step="1" inputmode="decimal"></label>
       <label class="f"><span>Stock mínimo</span><input type="number" id="p-minimo" min="0" step="1" inputmode="decimal"></label>
+    </div>
+    <div class="grid2">
+      <label class="f"><span>Costo de compra (opcional)</span><input type="number" id="p-costo" min="0" step="0.01" inputmode="decimal" placeholder="Lo que te cuesta cada unidad"></label>
+      <p class="muted costo-margen" id="p-margen" aria-live="polite"></p>
     </div>
     <details id="p-variations"><summary id="p-var-sum">Tallas y colores (opcional)</summary>
       <div class="var-pick">
@@ -1697,6 +1703,44 @@ async function saveFile(filename, data) {
 const dlg = $("#dlg");
 let editing = null;
 let editFoto = ""; // foto del producto que se está editando ("" = sin foto)
+// ---------- costo y ganancia ----------
+const tieneCosto = p => p && p.costo != null && p.costo !== "";
+// muestra en el editor cuánto se gana por unidad al precio de venta
+function margenVista() {
+  const el = $("#p-margen"), costo = $("#p-costo").value, precio = n2($("#p-precio").value);
+  if (costo === "" || !precio) { el.textContent = "Con el costo, Reportes te muestra cuánto ganas."; return; }
+  const gana = precio - n2(costo);
+  el.textContent = gana >= 0
+    ? `Ganas ${money(gana)} por unidad (${Math.round(gana / precio * 100)} % del precio).`
+    : `Pierdes ${money(-gana)} por unidad: el costo es mayor que el precio.`;
+}
+["#p-precio", "#p-costo"].forEach(s => $(s).addEventListener("input", margenVista));
+// costo de una línea vendida: el que se guardó al vender; las ventas de antes usan el costo actual del producto
+function itemCosto(i) {
+  if (i.costo != null) return n2(i.costo);
+  const p = i.productId && S.products.find(x => x.id === i.productId);
+  return tieneCosto(p) ? n2(p.costo) : null;
+}
+// ganancia de un grupo de notas emitidas. Los productos sin costo no entran en la cuenta;
+// los descuentos (líneas en negativo) sí, porque bajan lo que se ganó.
+function gananciaDe(ok) {
+  const g = { ingresos: 0, costo: 0, descuentos: 0, sinCosto: 0, lineasSinCosto: 0, productos: new Map() };
+  ok.forEach(n => (n.items || []).forEach(i => {
+    const monto = n2(i.cant) * n2(i.precio), c = itemCosto(i);
+    if (monto < 0) { g.ingresos += monto; g.descuentos += monto; return; }
+    if (c == null) { g.sinCosto += monto; g.lineasSinCosto++; return; }
+    const costo = n2(i.cant) * c;
+    g.ingresos += monto; g.costo += costo;
+    const p = i.productId && S.products.find(x => x.id === i.productId);
+    const k = i.productId || norm(i.nombre);
+    const d = g.productos.get(k) || { nombre: p ? p.nombre : String(i.nombre || "").replace(/\s+–\s+[^–]*$/, ""), cat: p?.categoria || "", unidades: 0, ingresos: 0, costo: 0 };
+    d.unidades += n2(i.cant); d.ingresos += monto; d.costo += costo;
+    g.productos.set(k, d);
+  }));
+  g.ganancia = round2(g.ingresos - g.costo);
+  g.margen = g.ingresos > 0 ? g.ganancia / g.ingresos * 100 : 0;
+  return g;
+}
 function openProduct(id) {
   if (!exigir(id ? "producto.editar" : "producto.crear", id ? "editar productos" : "crear productos")) return;
   editing = id ? S.products.find(p => p.id === id) : null;
@@ -1708,6 +1752,8 @@ function openProduct(id) {
   $("#p-precio").value = editing ? n2(editing.precio) : "";
   $("#p-stock").value = editing ? n2(editing.stock) : "";
   $("#p-minimo").value = editing ? n2(editing.minimo) : "";
+  $("#p-costo").value = editing && tieneCosto(editing) ? n2(editing.costo) : "";
+  margenVista();
   $("#p-unidad").value = editing ? editing.unidad || "und" : "und";
   openVariantEditor(editing);
   editFoto = editing && fotoOk(editing) ? editing.foto : "";
@@ -2007,6 +2053,7 @@ $("#pform").addEventListener("submit", async e => {
   if(variants.length){p.variantes=variants;p.stock=variants.reduce((a,v)=>a+n2(v.stock),0);}else delete p.variantes;
   const choque = conflictoCodigo(p, editing);
   if (choque) { const er = $("#p-err"); er.textContent = choque; er.hidden = false; return; }
+  if ($("#p-costo").value !== "") p.costo = n2($("#p-costo").value); else delete p.costo;
   if (editFoto) p.foto = editFoto; else delete p.foto;
   fotoLista = null;
   if (!editing) p.creado = p.actualizado;
@@ -2645,7 +2692,13 @@ $("#v-venta").addEventListener("keydown", e => {
 });
 async function emitNote(btn) {
   if (!exigir("venta.crear", "crear ventas")) return;
-  const items = draft.items.filter(i => n2(i.cant) > 0).map(i => ({ ...i, cant: n2(i.cant), precio: n2(i.precio) }));
+  const items = draft.items.filter(i => n2(i.cant) > 0).map(i => {
+    const linea = { ...i, cant: n2(i.cant), precio: n2(i.precio) };
+    // el costo se guarda con la venta: si después cambia, la ganancia de esta venta no se mueve
+    const p = i.productId && S.products.find(x => x.id === i.productId);
+    if (p && tieneCosto(p)) linea.costo = n2(p.costo); else delete linea.costo;
+    return linea;
+  });
   if (!items.length) return;
   btn.disabled = true;
   const fromQuote = draft.cotizacionId;
@@ -3828,7 +3881,7 @@ function inventoryBook() {
     else add(p);
   });
   const value = [...cats.values()].reduce((a, d) => a + d.value, 0), units = [...cats.values()].reduce((a, d) => a + d.units, 0);
-  const aviso = "Valorizado a precio de venta. Mostrador no registra el costo de compra: para el inventario contable se necesita ese dato.";
+  const aviso = "Valorizado a precio de venta. Para el inventario contable se usa el costo de compra, que puedes anotar en cada producto.";
   return {
     title: "Inventario valorizado a precio de venta", period: "Al " + fmtDay(new Date()),
     kpis: [["Productos", qty(S.products.length)], ["Unidades", qty(units)], ["Valor total", money(value)], ["Por reponer", qty(rows.filter(r => r[11] !== "OK").length)]],
@@ -3903,7 +3956,7 @@ function reportBook(rep) {
 }
 
 // ---------- reportes ----------
-const REPORT_TYPES = [["ventas", "Ventas"], ["productos", "Productos más vendidos"], ["inventario", "Inventario valorizado"], ["reponer", "Stock por reponer"], ["cotizaciones", "Cotizaciones"]];
+const REPORT_TYPES = [["ventas", "Ventas"], ["productos", "Productos más vendidos"], ["ganancias", "Ganancias y márgenes"],["inventario", "Inventario valorizado"], ["reponer", "Stock por reponer"], ["cotizaciones", "Cotizaciones"]];
 const REPORT_PERIODS = [["today", "Hoy"], ["7d", "Últimos 7 días"], ["30d", "Últimos 30 días"], ["month", "Este mes"], ["lastmonth", "Mes anterior"], ["custom", "Elegir fechas"]];
 let reportType = store.get("mostrador.reportType") || "ventas";
 let reportPeriod = store.get("mostrador.reportPeriod") || "month";
@@ -3966,6 +4019,16 @@ function buildReport() {
     rep.kpis = [["Productos distintos", qty(rows.length)], ["Unidades vendidas", qty(units)], ["Ingresos", money(total)], ["Más vendido", rows[0] ? rows[0].nombre : "—"]];
     rep.sections.push({ title: "Ranking por ingresos", cols: [["#", "q"], ["Producto"], ["Categoría"], ["Unidades", "q"], ["Ingresos", "m"], ["% del total", "p"]],
       rows: rows.map((x, k) => [k + 1, x.nombre, x.cat || "Sin categoría", x.units, x.amount, total ? x.amount / total * 100 : 0]), foot: ["", "Total", "", units, total, total ? 100 : 0] });
+  } else if (reportType === "ganancias") {
+    const g = gananciaDe(S.notes.filter(n => n.estado !== "anulada" && inRange(n.fecha, r)));
+    const filas = [...g.productos.values()].map(d => ({ ...d, ganancia: d.ingresos - d.costo })).sort((a, b) => b.ganancia - a.ganancia);
+    rep.kpis = [["Ganancia", money(g.ganancia)], ["Margen", Math.round(g.margen) + " %"], ["Ventas con costo", money(g.ingresos)], ["Costo de lo vendido", money(g.costo)]];
+    rep.sections.push({ title: "Ganancia por producto", cols: [["Producto"], ["Categoría"], ["Unidades", "q"], ["Ventas", "m"], ["Costo", "m"], ["Ganancia", "m"], ["Margen", "p"]],
+      rows: filas.map(d => [d.nombre, d.cat || "Sin categoría", d.unidades, d.ingresos, d.costo, d.ganancia, d.ingresos ? d.ganancia / d.ingresos * 100 : 0])
+        .concat(g.descuentos ? [["Descuentos", "", "", g.descuentos, 0, g.descuentos, ""]] : []),
+      foot: ["Total", "", "", g.ingresos, g.costo, g.ganancia, g.margen] });
+    rep.note = "Margen = ganancia ÷ precio de venta." +
+      (g.lineasSinCosto ? ` No se cuentan ${money(g.sinCosto)} vendidos en productos sin costo: agrégales el costo en Inventario.` : "");
   } else if (reportType === "inventario") {
     const rows = [...S.products].sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "", "es") || a.nombre.localeCompare(b.nombre, "es"))
       .flatMap(p => p.variantes && p.variantes.length
@@ -4113,6 +4176,21 @@ function repVistaGeneral(ok, notes, r) {
     ${kpi(cambio === null ? "—" : (cambio > 0 ? "+" : "") + cambio + "%", `Frente a los ${dias} ${dias === 1 ? "día" : "días"} anteriores`)}
   </div>`;
 }
+function repGanancia(ok) {
+  const g = gananciaDe(ok);
+  if (!g.ingresos && !g.costo) return repVacio("Aún no hay costos. Edita tus productos en Inventario y escribe el «Costo de compra» para ver cuánto ganas.");
+  const kpi = (v, t) => `<div class="rep-kpi"><b class="num">${esc(v)}</b><span>${esc(t)}</span></div>`;
+  const top = [...g.productos.values()].map(d => ({ label: d.nombre, valor: Math.max(0, d.ingresos - d.costo), ganancia: d.ingresos - d.costo, margen: d.ingresos ? (d.ingresos - d.costo) / d.ingresos * 100 : 0 }))
+    .sort((a, b) => b.ganancia - a.ganancia).slice(0, 5)
+    .map(d => ({ ...d, texto: money(d.ganancia) + " · " + Math.round(d.margen) + " %" }));
+  return `<div class="rep-kpis">
+    ${kpi(money(g.ganancia), "Ganancia")}
+    ${kpi(Math.round(g.margen) + " %", "Margen")}
+    ${kpi(money(g.costo), "Costo de lo vendido")}
+  </div>
+  ${top.length ? `<p class="muted rep-mini">Los que más ganancia dejan</p>${repBarras(top)}` : ""}
+  ${g.lineasSinCosto ? `<p class="muted rep-mini">No incluye ${esc(money(g.sinCosto))} vendidos en productos sin costo.</p>` : ""}`;
+}
 function renderReportes() {
   if (!exigir("estadisticas.ver", "ver reportes")) return;
   const el = $("#v-reportes");
@@ -4142,6 +4220,7 @@ function renderReportes() {
         ir: "productos",
         extra: `<select id="r-top" aria-label="Ordenar productos por"><option value="monto" ${reportTopMode === "monto" ? "selected" : ""}>Monto</option><option value="cantidad" ${reportTopMode === "cantidad" ? "selected" : ""}>Cantidad</option></select>`,
       })}
+      ${repCard("Ganancia", "Precio de venta menos el costo de compra de lo vendido. Solo cuenta los productos que tienen costo.", hay ? repGanancia(ok) : repVacio(), { ir: "ganancias" })}
       ${repCard("Formas de pago más utilizadas", "Ordenadas por número de ventas. Es lo que se anotó al vender.", hay ? repBarras(pagos.map(d => ({ label: d.label, valor: d.count, texto: d.count + (d.count === 1 ? " venta" : " ventas") + " · " + money(d.total) }))) : repVacio(), { ir: "ventas" })}
       ${repCard("Pedidos web", "Pedidos hechos en tu tienda web.", repVacio("Todavía no hay datos: los pedidos de tu tienda web llegan por WhatsApp y no se guardan en Mostrador."))}
     </div>
@@ -4180,8 +4259,8 @@ $("#v-reportes").addEventListener("toggle", e => {
 $("#v-reportes").addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
   if (t.dataset.repIr === "ventas") return go("ventas");
-  if (t.dataset.repIr === "productos") {
-    reportType = "productos"; store.set("mostrador.reportType", reportType);
+  if (t.dataset.repIr === "productos" || t.dataset.repIr === "ganancias") {
+    reportType = t.dataset.repIr; store.set("mostrador.reportType", reportType);
     reportDocAbierto = true;
     renderReportes();
     return $("#r-doc").scrollIntoView({ behavior: "smooth" });
