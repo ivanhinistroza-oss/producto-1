@@ -236,6 +236,9 @@ label.f > span,.pay-field > span{letter-spacing:.02em}
 .etq-opts{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .etq-opts select{flex:1 1 200px;min-width:0}
 .etq-todo{display:flex;flex-wrap:wrap;gap:6px}
+.etq-solo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;padding:8px 10px;border-radius:8px;background:var(--accent-soft);font-size:13.5px}
+.etq-solo .btn{padding:4px 10px;font-size:13px}
+.var-etq{margin-top:10px}
 .etq-filas{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;max-height:min(42dvh,360px);overflow:auto;min-height:80px}
 .etq-filas > .muted{padding:10px;margin:0}
 .etq-fila{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--line)}
@@ -719,6 +722,7 @@ body{height:100dvh;overflow:hidden}
   <div class="label-body">
     <h2>Imprimir etiquetas</h2>
     <input type="search" id="etqQ" placeholder="Buscar por nombre, categoría o código" aria-label="Buscar producto" autocomplete="off">
+    <div class="etq-solo" id="etqSolo" hidden></div>
     <div class="etq-opts">
       <select id="etqTam" aria-label="Tamaño de la etiqueta"></select>
       <label class="check"><input type="checkbox" id="etqPrecio"> Mostrar precio</label>
@@ -1348,7 +1352,7 @@ function varRowHtml(p, st, chip) {
     <div class="price">${lo === hi ? money(lo) : `<span style="white-space:nowrap">${money(lo)} –</span> <span style="white-space:nowrap">${money(hi)}</span>`}<div class="muted" style="font-size:12px">por ${esc(p.unidad || "und")}</div></div>
     <button class="var-toggle" data-vtoggle="${esc(p.id)}" aria-expanded="${open}" aria-label="Ver stock por talla y color de ${esc(p.nombre)}"><b>${qty(st)}</b><span class="muted">${esc(p.unidad || "und")} · ${open ? "Ocultar" : "Ver tallas"}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
     <div class="estado">${chip}</div>
-    ${open ? `<div class="var-panel">${varDetailHtml(p)}</div>` : ""}
+    ${open ? `<div class="var-panel">${varDetailHtml(p)}${puede("producto.editar") ? `<button class="btn var-etq" data-etq-producto="${esc(p.id)}"><svg class="bc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>Imprimir etiquetas de este producto</button>` : ""}</div>` : ""}
   </div>`;
 }
 // Cuadro talla × color con el stock de cada combinación; si las variantes no forman un cuadro, una lista
@@ -1501,6 +1505,7 @@ document.addEventListener("click", e => {
   if (t.dataset.view) return go(t.dataset.view);
   if (t.id === "addProd") return openProduct(null);
   if (t.id === "openLabels") return abrirEtiquetas();
+  if (t.dataset.etqProducto) return abrirEtiquetas(t.dataset.etqProducto);
   if (t.id === "invScan") return abrirEscaner(c => { const m = inventarioCodigo(c); if (m) toast(m); return false; });
   if (t.dataset.edit) return openProduct(t.dataset.edit);
   if (t.dataset.vtoggle) { const id = t.dataset.vtoggle; if (openVar.has(id)) openVar.delete(id); else openVar.add(id); return renderInventario(); }
@@ -2312,20 +2317,26 @@ $("#pform").addEventListener("keydown", e => {
 // --- etiquetas ---
 const ETQ_TAMANOS = {
   a4: { titulo: "Hoja A4 (3 columnas)", ancho: 63.5 },
-  e50: { titulo: "Rollo de etiquetas 50 × 25 mm", ancho: 50 },
+  e50x2: { titulo: "Rollo de 2 columnas 50 × 25 mm (2\" × 1\")", ancho: 50 },
+  e50: { titulo: "Rollo de 1 columna 50 × 25 mm", ancho: 50 },
   ticket: { titulo: "Ticketera", ancho: 0 },
 };
+// rollo de 2 columnas de 50 × 25 mm (2" × 1"): 2 mm entre etiquetas, como la mayoría de esos rollos
+const ETQ_ROLLO2 = { separacion: 2, anchoPagina: 102 };
 const ETQ_FILAS = 100;
-const etq = { q: "", cant: new Map(), tam: "a4", precio: true };
+const etq = { q: "", cant: new Map(), tam: "a4", precio: true, solo: null }; // solo: id del producto si se abrió desde su detalle
 const etqClave = (p, v) => p.id + ":" + (v ? v.id : "");
 const etqTodas = () => S.products.flatMap(p => p.variantes && p.variantes.length ? p.variantes.map(v => ({ p, v })) : [{ p, v: null }]);
 const etqNombre = f => f.p.nombre + (f.v ? " – " + [f.v.talla, f.v.color].filter(Boolean).join(" / ") : "");
 const etqCodigo = f => f.v ? f.v.codigo || "" : f.p.codigo || "";
 function etqVisibles() {
   const q = norm(etq.q);
-  return etqTodas().filter(f => !q || norm(etqNombre(f) + " " + (f.p.categoria || "") + " " + etqCodigo(f)).includes(q))
-    .sort((a, b) => etqNombre(a).localeCompare(etqNombre(b), "es"));
+  return etqTodas().filter(f => !etq.solo || f.p.id === etq.solo).filter(f => !q || norm(etqNombre(f) + " " + (f.p.categoria || "") + " " + etqCodigo(f)).includes(q))
+    .sort(etqOrden);
 }
+// por producto y, dentro de cada uno, por color y talla (XS, S, M…), igual que el cuadro de tallas
+const etqOrden = (a, b) => a.p.nombre.localeCompare(b.p.nombre, "es") || a.p.id.localeCompare(b.p.id)
+  || byColor((a.v && a.v.color) || "", (b.v && b.v.color) || "") || byTalla((a.v && a.v.talla) || "", (b.v && b.v.talla) || "");
 function etqTotal() {
   const n = [...etq.cant.values()].reduce((a, x) => a + x, 0);
   $("#etqTotal").textContent = n === 1 ? "1 etiqueta" : n + " etiquetas";
@@ -2340,11 +2351,23 @@ function etqLista() {
   }).join("") + (filas.length > ETQ_FILAS ? `<p class="muted">Se muestran ${ETQ_FILAS} de ${filas.length}. Busca para ver los demás; «Una de cada» y «Según el stock» cuentan a todos.</p>` : "") || `<p class="muted">Ningún producto coincide con la búsqueda.</p>`;
   etqTotal();
 }
-function abrirEtiquetas() {
+function etqSoloHtml() {
+  const p = etq.solo && S.products.find(x => x.id === etq.solo), box = $("#etqSolo");
+  box.hidden = !p;
+  box.innerHTML = p ? `<span>Solo <b>${esc(p.nombre)}</b>: una etiqueta por cada prenda en stock. Cambia los números si quieres otra cantidad.</span><button type="button" class="btn ghost" data-etq-ver-todos>Ver todos los productos</button>` : "";
+}
+// productoId: abre solo ese producto, con una etiqueta por cada prenda que hay en stock
+function abrirEtiquetas(productoId = null) {
   if (!exigir("producto.editar", "crear etiquetas")) return;
   const guardado = store.get("mostrador.etiquetas") || {};
   etq.q = "";
   etq.cant = new Map();
+  etq.solo = productoId && S.products.some(p => p.id === productoId) ? productoId : null;
+  if (etq.solo) etqVisibles().forEach(f => {
+    const n = Math.max(0, Math.floor(n2(f.v ? f.v.stock : f.p.stock)));
+    if (n) etq.cant.set(etqClave(f.p, f.v), n);
+  });
+  etqSoloHtml();
   etq.tam = ETQ_TAMANOS[guardado.tam] ? guardado.tam : "a4";
   etq.precio = guardado.precio !== false;
   $("#etqQ").value = "";
@@ -2358,14 +2381,23 @@ function abrirEtiquetas() {
 function etiquetasHtml(lista, tam, conPrecio, autoPrint) {
   const rollo = S.settings.papel === "58" ? 58 : 80;
   const ancho = tam === "ticket" ? rollo : ETQ_TAMANOS[tam].ancho, util = ancho - 3;
-  const alto = tam === "e50" ? 9.5 : 13;
+  const rollo50 = tam === "e50" || tam === "e50x2";
+  const alto = rollo50 ? 8.5 : 13;
+  // la talla y el color van en su propia línea, en negrita: aunque el nombre largo se corte, siempre se leen
   const etiqueta = f => {
     const c = etqCodigo(f), precio = n2(f.v && f.v.precio != null ? f.v.precio : f.p.precio);
-    return `<div class="e"><div class="n">${esc(etqNombre(f))}</div>${barraSvg(c, barraMod(c, util), alto)}<div class="c">${esc(c)}</div>${conPrecio ? `<div class="p">${esc(money(precio))}</div>` : ""}</div>`;
+    const variante = f.v ? [f.v.talla, f.v.color].filter(Boolean).join(" · ") : "";
+    return `<div class="e"><div class="n">${esc(f.p.nombre)}</div>${variante ? `<div class="v">${esc(variante)}</div>` : ""}${barraSvg(c, barraMod(c, util), alto)}<div class="c">${esc(c)}</div>${conPrecio ? `<div class="p">${esc(money(precio))}</div>` : ""}</div>`;
   };
   const pagina = {
-    a4: `@page{size:A4;margin:10mm 7mm}.a4{display:grid;grid-template-columns:repeat(3,63.5mm);grid-auto-rows:38.1mm;gap:0 2.5mm}`,
-    e50: `@page{size:50mm 25mm;margin:0}.e{height:25mm;break-after:page}.n{white-space:nowrap}`,
+    a4: `@page{size:A4;margin:10mm 7mm}.hoja-a4{display:grid;grid-template-columns:repeat(3,63.5mm);grid-auto-rows:38.1mm;gap:0 2.5mm}`,
+    // una etiqueta por página del rollo. Un poco más baja que la página: si el navegador redondea hacia arriba,
+    // no pasa a una segunda página (eso dejaría una etiqueta en blanco entre cada una). La última no fuerza salto.
+    e50: `@page{size:50mm 25mm;margin:0}html,body{width:50mm}.e{height:24.5mm;break-after:page}.e:last-child{break-after:auto}.n{white-space:nowrap}`,
+    // dos etiquetas por fila: la página es una fila del rollo (50 + 2 de separación + 50 mm)
+    e50x2: `@page{size:${ETQ_ROLLO2.anchoPagina}mm 25mm;margin:0}html,body{width:${ETQ_ROLLO2.anchoPagina}mm}
+.fila{display:flex;gap:${ETQ_ROLLO2.separacion}mm;height:24.5mm;break-after:page}.fila:last-child{break-after:auto}
+.fila .e{width:50mm;height:24.5mm;flex:none}.n{white-space:nowrap}`,
     ticket: `@page{size:${rollo}mm auto;margin:0}.e{width:${rollo}mm;padding:2mm 1.5mm 3mm;border-bottom:1px dashed #000}`,
   }[tam];
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Etiquetas</title>
@@ -2375,10 +2407,13 @@ body{margin:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}
 .e{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4mm;overflow:hidden;break-inside:avoid;text-align:center;padding:1mm 1.5mm}
 .e svg{display:block;flex:none}
 .n{font-size:7.5pt;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;max-height:2.2em}
+.v{font-size:8.5pt;font-weight:700;line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c{font-size:7pt;letter-spacing:.04em;line-height:1}
 .p{font-size:10pt;font-weight:700;line-height:1.05}
 ${pagina}
-</style></head><body><main class="a4">${lista.map(etiqueta).join("")}</main>
+</style></head><body><main class="hoja hoja-${tam}">${tam === "e50x2"
+    ? Array.from({ length: Math.ceil(lista.length / 2) }, (_, i) => `<div class="fila">${lista.slice(i * 2, i * 2 + 2).map(etiqueta).join("")}</div>`).join("")
+    : lista.map(etiqueta).join("")}</main>
 ${autoPrint ? '<script>addEventListener("load",function(){setTimeout(function(){print()},300)})<\/script>' : ""}
 </body></html>`;
 }
@@ -2386,7 +2421,7 @@ async function etqImprimir(btn) {
   if (!exigir("producto.editar", "crear etiquetas")) return;
   const msg = $("#etqMsg");
   msg.hidden = true;
-  const elegidas = etqTodas().filter(f => etq.cant.get(etqClave(f.p, f.v)) > 0);
+  const elegidas = etqTodas().filter(f => etq.cant.get(etqClave(f.p, f.v)) > 0).sort(etqOrden);
   if (!elegidas.length) return;
   const malo = elegidas.find(f => etqCodigo(f) && !barraModulos(etqCodigo(f).trim()));
   if (malo) {
@@ -2414,7 +2449,7 @@ async function etqImprimir(btn) {
     const actuales = new Map(etqTodas().map(f => [etqClave(f.p, f.v), f]));
     const lista = claves.map(k => actuales.get(k)).map(f => ({ ...f, ...codigoActual(f, cambios) }));
     store.set("mostrador.etiquetas", { tam: etq.tam, precio: etq.precio });
-    const ancho = etq.tam === "a4" ? "210mm" : etq.tam === "e50" ? "50mm" : (S.settings.papel === "58" ? 58 : 80) + "mm";
+    const ancho = etq.tam === "a4" ? "210mm" : etq.tam === "e50" ? "50mm" : etq.tam === "e50x2" ? ETQ_ROLLO2.anchoPagina + "mm" : (S.settings.papel === "58" ? 58 : 80) + "mm";
     if (canPrintLocally()) printFrame(etiquetasHtml(lista, etq.tam, etq.precio, false), ancho, btn);
     else await saveFile("etiquetas.html", etiquetasHtml(lista, etq.tam, etq.precio, true));
     etqLista();
@@ -2449,6 +2484,7 @@ $("#labelDlg").addEventListener("click", e => {
   if (!t) return;
   if (t.id === "etqCerrar") return $("#labelDlg").close();
   if (t.id === "etqPrint") return etqImprimir(t);
+  if ("etqVerTodos" in t.dataset) { etq.solo = null; etqSoloHtml(); return etqLista(); }
   const modo = t.dataset.etqTodo;
   if (!modo) return;
   etqVisibles().forEach(f => {
@@ -3009,7 +3045,7 @@ function printFrame(html, width, button) {
   };
   const finish = () => { frame.remove(); unlock(); };
   frame.onload = () => {
-    if (started || !frame.contentDocument || !frame.contentDocument.querySelector(".ticket,.a4")) return;
+    if (started || !frame.contentDocument || !frame.contentDocument.querySelector(".ticket,.a4,.hoja")) return;
     started = true;
     const win = frame.contentWindow, doc = frame.contentDocument;
     win.addEventListener("afterprint", finish, { once: true });
